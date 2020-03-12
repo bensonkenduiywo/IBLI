@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## IBLI Programme Evaluation using CHIRPS rainfall
+## IBLI Programme Design and Evaluation using CHIRPS rainfall data
 
  Load libraries
  
@@ -51,13 +51,17 @@ Let us make some plots.
 
 ```{r plots}
 plot(rainfall~date, data=p2, type="l", ylab="rainfall (mm)")
-i <- m == "May"
-points(time[i], andvi[i], col="red", pch=20)
-j <- m == "December"
-points(time[j], andvi[j], col="blue", pch=20)
+m <- months(p2$date)
+i <- m == "April"
+points(p2$date[i], p2$rainfall[i], col="red", pch=20)
+j <- m == "November"
+points(p2$date[j], p2$rainfall[j], col="blue", pch=20)
 legend("topright", pch = 20, col = c("red", "blue"), legend=c('May','December'), title="Month")
+
 p2$months <- months(p2$date)
 r <- aggregate(rainfall~months, p2, mean, na.rm=T)
+r$months <- as.Date(r$months,paste0("2020",r$months,"01"), format = "%Y%B%d")
+plot(rainfall~months(r$months), data=r, type="l", ylab="rainfall (mm)")
 
 ```
 
