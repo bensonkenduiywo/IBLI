@@ -1,0 +1,148 @@
+---
+title: "IBLI contract based on chirps"
+author: "Benson Kenduiywo"
+date: "22/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## IBLI Programme Evaluation using CHIRPS rainfall
+
+ Load libraries
+ 
+```{r lib}
+rm(list = ls(all=TRUE))
+library(agrins)
+library(reshape2)
+library(dplyr)
+
+```
+
+Load precipitation data.
+
+```{r d1}
+p <- data_ibli("marsabit_chirps_precipitation")
+names(p)[1:10]
+
+```
+
+Reshape the data from wide table to long with year as variable.
+
+```{r d2}
+p2 <- melt(p, variable.name = "date", value.name = "rainfall")
+p2[1,]
+
+```
+
+Format the date variable by removing unnecessary variables.
+
+```{r d3}
+date <- gsub("X", "", p2$date)
+p2$date <- as.Date(as.character(date), format = "%Y%m%d")
+p2[1,]
+
+```
+
+Let us make some plots.
+
+
+```{r plots}
+plot(rainfall~date, data=p2, type="l", ylab="rainfall (mm)")
+i <- m == "May"
+points(time[i], andvi[i], col="red", pch=20)
+j <- m == "December"
+points(time[j], andvi[j], col="blue", pch=20)
+legend("topright", pch = 20, col = c("red", "blue"), legend=c('May','December'), title="Month")
+p2$months <- months(p2$date)
+r <- aggregate(rainfall~months, p2, mean, na.rm=T)
+
+```
+
+Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
+
+```{r d4}
+seasonMean <- function(year, df, season){
+  if(season =="long"){
+    sdate <- paste0(year, "-03-01")
+    edate <- paste0(year, "-09-30")
+    season <- "LRLD"
+  }else if (season =="short"){
+    sdate <- paste0(year-1, "-10-01")
+    edate <- paste0(year, "-02-28")
+    season <- "SRSD"
+  }else{
+    print("Define season")
+  }
+  ydf <- df[df$date >= sdate & df$date <= edate, ]
+  ym <- aggregate(ydf[,3], ydf[,1, drop=FALSE], mean, na.rm=T)
+  ym$year <- year
+  ym$season <- season
+  return(ym)
+}
+
+```
+
+Compute the season daily average rainfall per season in each year.
+
+```{r d5}
+years <- seq(1982, 2018, 1)
+LR_rain <- lapply(years, seasonMean, p2, "long")
+LR_rain <- do.call(rbind, LR_rain)
+names(LR_rain)[2] <- "rainfall"
+SR_rain <- lapply(years, seasonMean, p2, "short")
+SR_rain <- do.call(rbind, SR_rain)
+names(SR_rain)[2] <- "rainfall"
+rain <- rbind(LR_rain, SR_rain)
+
+```
+
+Compute zScored average daily rainfall per season per Sub-location. First get the zScore function.
+
+```{r d6}
+
+zscore <- function(y){
+  (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
+}
+
+```
+
+The compute the zScored daily average rainfall per season per sublocation.
+
+```{r d7}
+rain <- ungroup(mutate(group_by(rain,SUBLOCATION), 
+                       zrain=zscore(rainfall)))
+
+```
+
+Now we need house hold mortality data in order to build a model. Get mortality data.
+
+```{r d8}
+mort <- data_ibli("marsabit_mortality.rds")
+
+```
+
+Load data with causes of mortality.
+
+```{r d9}
+cause <- data_ibli("marsabit_losses")[,c("hhid", "sublocation", "cause","month", "year")]
+colnames(cause)[4] <- "season"
+s <- cause$season
+cause$season <- "SRSD"
+cause$season[s >=3 & s <=9] <-"LRLD"
+cause <- na.omit(cause)
+head(cause, n=2)
+
+```
+
+
+Merge causes table with mortality data.
+
+```{r d10}
+aa  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+```
+
+
+
