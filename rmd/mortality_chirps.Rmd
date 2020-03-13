@@ -32,7 +32,7 @@ names(p)[1:10]
 Reshape the data from wide table to long with year as variable.
 
 ```{r d2}
-p2 <- melt(p, variable.name = "date", value.name = "rainfall")
+p2 <- melt(p, variable.name = "date", value.name = "rainfall", id.vars = "SUBLOCATION")
 p2[1,]
 
 ```
@@ -48,20 +48,27 @@ p2[1,]
 
 Let us make some plots.
 
-
 ```{r plots}
 plot(rainfall~date, data=p2, type="l", ylab="rainfall (mm)")
 m <- months(p2$date)
-i <- m == "April"
-points(p2$date[i], p2$rainfall[i], col="red", pch=20)
-j <- m == "November"
-points(p2$date[j], p2$rainfall[j], col="blue", pch=20)
-legend("topright", pch = 20, col = c("red", "blue"), legend=c('May','December'), title="Month")
+i <- m == "September"
+lines(p2$date[i], p2$rainfall[i], col="red", cex=1.2)
+j <- m == "October"
+lines(p2$date[j], p2$rainfall[j], col="blue", cex=1.2)
+legend("topleft", lty = 1, col = c("red", "blue"), legend=c('September','October'), title="Month")
 
+#1980-2019 Average monthly rainfall
 p2$months <- months(p2$date)
-r <- aggregate(rainfall~months, p2, mean, na.rm=T)
-r$months <- as.Date(r$months,paste0("2020",r$months,"01"), format = "%Y%B%d")
-plot(rainfall~months(r$months), data=r, type="l", ylab="rainfall (mm)")
+m <- aggregate(rainfall~months, p2, mean, na.rm=T)
+m$months <- as.Date(paste0("2020", m$months,"01"), format = "%Y%B%d")
+
+m <- m[order(m$months),]
+plot(rainfall~months, data=m, type="l", ylab="rainfall (mm)", main="1980-2019 Average monthly rainfall")
+
+#1980-2019 average annual rainfall
+p2$year <- as.numeric(format(p2$date,'%Y')) 
+y <- aggregate(rainfall~year, p2, mean, na.rm=T)
+plot(rainfall~year, data=y, type="l", ylab="rainfall (mm)", main="1980-2019 average annual rainfall")
 
 ```
 
@@ -100,6 +107,15 @@ SR_rain <- lapply(years, seasonMean, p2, "short")
 SR_rain <- do.call(rbind, SR_rain)
 names(SR_rain)[2] <- "rainfall"
 rain <- rbind(LR_rain, SR_rain)
+
+#1982-2018 average annual rainfall per season
+y <- aggregate(rainfall~year+season, rain, mean, na.rm=T)
+plot(rainfall~year, data=y, type="n", ylab="rainfall (mm)", main="1982-2018 average annual rainfall per seaon")
+i <- y[y$season=="LRLD", ]
+lines(rainfall~year, i, col="red", cex=1.2)
+i <- y[y$season=="SRSD", ]
+lines(rainfall~year, i, col="blue", cex=1.2)
+legend("topleft", lty = 1, col = c("red", "blue"), legend=c('LRLD','SRSD'), title="Season")
 
 ```
 
@@ -145,8 +161,30 @@ head(cause, n=2)
 Merge causes table with mortality data.
 
 ```{r d10}
-aa  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+mort2  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+
 ```
+
+Make some plots of cause of deaths.
+
+```{r d11}
+temp <- mort2[mort2$type=="TLU", ]
+c <- tapply(temp$loss, temp$cause, mean, na.rm=TRUE)
+barplot(c)
+c <- aggregate(loss~cause+year, temp, mean, na.rm=T)
+c <- reshape(c, direction="wide", idvar="cause", timevar="year")
+colnames(c) <- gsub("loss.", "", colnames(c))
+c$cause <- gsub("/.*","", c$cause)
+c$cause <- gsub(" .*","", c$cause)
+c$cause[c$cause=="Just"]= "Lost"
+c <- as.matrix(c)
+rownames(c) <- c[,1]
+cola <- c("red", "green", "blue", "grey40", "yellow", "black", "orange", "purple", "brown", "skyblue")
+par(mfrow=c(1, 1), mar=c(5, 5, 4, 5))
+barplot(c[,-1], legend =  rownames(c), las=2, args.leg=list(x = "topright", bty = "n", inset=c(-0.2, 0),cex=1), col=cola, ylab="Livestock loss per TLU")
+
+```
+
 
 
 
