@@ -1,5 +1,5 @@
 ---
-title: "IBLI contract based on chirps"
+title: "IBLI contract design and evaluation based on chirps and NDVI"
 author: "Benson Kenduiywo"
 date: "22/11/2019"
 output: html_document
@@ -185,6 +185,54 @@ barplot(c[,-1], legend =  rownames(c), las=2, args.leg=list(x = "topright", bty 
 
 ```
 
+## Spatial Variation
+ Let us explore if there is any spatial variation of average rainfall since 1980.
 
+Load Marsabit shapefile
 
+```{r sp1}
+subloc <- data_ibli("marsabit")
+```
 
+Check names consistency before merging.
+
+```{r sp2}
+a = sort(unique(subloc$SUB_LOCATION))
+b = sort(unique(rain$SUBLOCATION))
+a[!a %in% b]
+
+```
+
+Now format sublocation names in shapefile to be consistent with those in rain.
+
+```{r sp3}
+subloc$SUB_LOCATION <- gsub("\\s*\\([^\\)]+\\)","",subloc$SUB_LOCATION)
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="MARSABIT TOWNSHIP"] <- "TOWNSHIP"
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="MARSABIT TOWNSHIP"] <- "TOWNSHIP"
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="MT. KULAL" ] <- "MT KULAL" 
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="LONYORIPICHAU" ] <- "LONYORI PICHAU" 
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="EL-HADI" ] <- "EL-HARDI" 
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="KURUNGU" ] <- "KARUNGU"
+
+```
+
+Now merge rainfall data with sublocation boundary information and plot LRLD and SRSD spatial variation maps.
+
+```{r sp4}
+r <- aggregate(rain[, c("zrain","rainfall"), drop=FALSE], rain[,c("SUBLOCATION", "season"), drop=FALSE],mean, na.rm=T)
+lr <- merge(subloc, r[r$season=="LRLD",], by.x="SUB_LOCATION", by.y="SUBLOCATION")
+sr <- merge(subloc, r[r$season=="SRSD",], by.x="SUB_LOCATION", by.y="SUBLOCATION")
+
+cols <- terrain.colors(length(lr$SUB_LOCATION),rev = T)
+x11()
+spplot(lr, "rainfall", col.regions=cols, main="LRLD Average rainfal per Sub-location: 1982-2019")
+x11()
+spplot(sr, "rainfall", col.regions=cols, main="SRSD Average rainfall per Sub-location: 1982-2019")
+
+```
+
+## Modelling Mortality
+
+### Introduction
+
+To design and evaluate an index based insurance contract, we need to understand the relationship between the index and losses incurred. Here we develop such a relationship using the z-scored rainfall and NDVI to predict livestock mortality, using survey data from Marsabit.
