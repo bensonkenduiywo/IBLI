@@ -1,0 +1,373 @@
+---
+title: "IBLI contract design and evaluation based on chirps and NDVI"
+author: "Benson Kenduiywo"
+date: "22/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## IBLI Programme Design and Evaluation using CHIRPS rainfall data
+
+ Load libraries
+ 
+```{r lib}
+rm(list = ls(all=TRUE))
+library(agrins)
+library(reshape2)
+library(dplyr)
+
+```
+
+Load precipitation and NDVI data.
+
+```{r d1}
+n <- data_ibli("marsabit_avhrr_ndvi") #NOAA
+p <- data_ibli("marsabit_chirps_precipitation")
+names(p)[1:10]
+
+```
+
+Reshape the data from wide table to long with year as variable.
+
+```{r d2}
+p2 <- melt(p, variable.name = "date", value.name = "rainfall", id.vars = "SUBLOCATION")
+p2[1,]
+
+n2 <- melt(n, variable.name = "date", value.name = "ndvi", id.vars = "SUBLOCATION")
+n2[1,]
+```
+
+Format the date variable by removing unnecessary variables.
+
+```{r d3}
+#Chirps
+date <- gsub("X", "", p2$date)
+p2$date <- as.Date(as.character(date), format = "%Y%m%d")
+p2[1,]
+#NOAA
+date <- gsub("X", "", n2$date)
+n2$date <- as.Date(as.character(date), format = "%Y%m%d")
+n2[1,]
+
+```
+
+Let us make some plots.
+
+```{r plots}
+plot(rainfall~date, data=p2, type="l", ylab="rainfall (mm)")
+m <- months(p2$date)
+i <- m == "September"
+lines(p2$date[i], p2$rainfall[i], col="red", cex=1.2)
+j <- m == "October"
+lines(p2$date[j], p2$rainfall[j], col="blue", cex=1.2)
+legend("topleft", lty = 1, col = c("red", "blue"), legend=c('September','October'), title="Month")
+
+
+#1982-2019 average annual rainfall
+p2$year <- as.numeric(format(p2$date,'%Y')) 
+y <- aggregate(rainfall~year, p2, mean, na.rm=T)
+x11()
+plot(rainfall~year, data=y[-1,], type="l", ylab="rainfall (mm)", main="1982-2019 average annual rainfall", axes=F, cex.lab=1.2)
+axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
+axis(side=2, at=seq(0, 5, by=1), cex.axis=1.1)
+box()
+
+#1982-2019 average annual NDVI
+n2$year <- as.numeric(format(n2$date,'%Y')) 
+y <- aggregate(ndvi~year, n2, mean, na.rm=T)
+x11()
+plot(ndvi~year, data=y[-1,], type="l", ylab="NDVI", main="1982-2019 average annual NDVI", axes=F, cex.lab=1.2)
+axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
+axis(side=2, at=seq(0, 0.5, by=0.1), cex.axis=1.1)
+box()
+
+```
+
+Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
+
+```{r d4}
+seasonMean <- function(year, df, season){
+  if(season =="long"){
+    sdate <- paste0(year, "-03-01")
+    edate <- paste0(year, "-09-30")
+    season <- "LRLD"
+  }else if (season =="short"){
+    sdate <- paste0(year-1, "-10-01")
+    edate <- paste0(year, "-02-28")
+    season <- "SRSD"
+  }else{
+    print("Define season")
+  }
+  ydf <- df[df$date >= sdate & df$date <= edate, ]
+  ym <- aggregate(ydf[,3], ydf[,1, drop=FALSE], mean, na.rm=T)
+  ym$year <- year
+  ym$season <- season
+  return(ym)
+}
+
+```
+
+Compute the season daily average rainfall per season in each year.
+
+```{r d5}
+years <- seq(1982, 2019, 1)
+LR_rain <- lapply(years, seasonMean, p2, "long")
+LR_rain <- do.call(rbind, LR_rain)
+names(LR_rain)[2] <- "rainfall"
+SR_rain <- lapply(years, seasonMean, p2, "short")
+SR_rain <- do.call(rbind, SR_rain)
+names(SR_rain)[2] <- "rainfall"
+rain <- rbind(LR_rain, SR_rain)
+
+#1982-2019 average annual rainfall per season
+y <- aggregate(rainfall~year+season, rain, mean, na.rm=T)
+plot(rainfall~year, data=y, type="n", ylab="rainfall (mm)", main="1982-2019 average annual rainfall per season",  axes=FALSE, cex.lab=1.2)
+axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
+axis(side=2, at=seq(0, 5, by=1), cex.axis=1.1)
+box()
+i <- y[y$season=="LRLD", ]
+lines(rainfall~year, i, col="red", cex=1.2)
+i <- y[y$season=="SRSD", ]
+lines(rainfall~year, i, col="blue", cex=1.2)
+legend("topleft", lty = 1, col = c("red", "blue"), legend=c('LRLD','SRSD'), title="Season")
+
+#1982-2019 average annual NDVI per season
+LR_ndvi <- lapply(years, seasonMean, n2, "long")
+LR_ndvi <- do.call(rbind, LR_ndvi)
+names(LR_ndvi)[2] <- "ndvi"
+SR_ndvi <- lapply(years, seasonMean, n2, "short")
+SR_ndvi <- do.call(rbind, SR_ndvi)
+names(SR_ndvi)[2] <- "ndvi"
+ndvi <- rbind(LR_ndvi, SR_ndvi)
+y <- aggregate(ndvi~year+season, ndvi, mean, na.rm=T)
+plot(ndvi~year, data=y, type="n", ylab="NDVI", main="1982-2019 average annual NDVI per season",  axes=FALSE, cex.lab=1.2)
+axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
+axis(side=2, at=seq(0, 1, by=0.1), cex.axis=1.1)
+box()
+i <- y[y$season=="LRLD", ]
+lines(ndvi~year, i, col="red", cex=1.2)
+i <- y[y$season=="SRSD", ]
+lines(ndvi~year, i, col="blue", cex=1.2)
+legend("topleft", lty = 1, col = c("red", "blue"), legend=c('LRLD','SRSD'), title="Season")
+
+```
+
+Compute zScored average daily rainfall per season per Sub-location. First get the zScore function.
+
+```{r d6}
+zscore <- function(y){
+  (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
+}
+
+```
+
+The compute the zScored daily average rainfall per season per sublocation.
+
+```{r d7}
+rain <- ungroup(mutate(group_by(rain,SUBLOCATION), 
+                       zrain=zscore(rainfall)))
+
+ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION), 
+                       zndvi=zscore(ndvi)))
+```
+
+Now we need house hold mortality data in order to build a model. Get mortality data.
+
+```{r d8}
+mort <- data_ibli("marsabit_mortality.rds")
+
+```
+
+Load data with causes of mortality.
+
+```{r d9}
+cause <- data_ibli("marsabit_losses")[,c("hhid", "sublocation", "cause","month", "year")]
+colnames(cause)[4] <- "season"
+s <- cause$season
+cause$season <- "SRSD"
+cause$season[s >=3 & s <=9] <-"LRLD"
+cause <- na.omit(cause)
+head(cause, n=2)
+
+```
+
+
+Merge causes table with mortality data.
+
+```{r d10}
+mort2  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+
+```
+
+Make some plots of cause of deaths.
+
+```{r d11}
+temp <- mort2[mort2$type=="TLU", ]
+c <- tapply(temp$loss, temp$cause, mean, na.rm=TRUE)
+barplot(c)
+c <- aggregate(loss~cause+year, temp, mean, na.rm=T)
+c <- reshape(c, direction="wide", idvar="cause", timevar="year")
+colnames(c) <- gsub("loss.", "", colnames(c))
+c$cause <- gsub("/.*","", c$cause)
+c$cause <- gsub(" .*","", c$cause)
+c$cause[c$cause=="Just"]= "Lost"
+c <- as.matrix(c)
+rownames(c) <- c[,1]
+cola <- c("red", "green", "blue", "grey40", "yellow", "black", "orange", "purple", "brown", "skyblue")
+par(mfrow=c(1, 1), mar=c(5, 5, 4, 5))
+barplot(c[,-1], legend =  rownames(c), las=2, args.leg=list(x = "topright", bty = "n", inset=c(-0.2, 0),cex=1), col=cola, ylab="Livestock loss per TLU")
+
+```
+
+## Spatial Variation
+ 
+Let us explore if there is any spatial variation of average rainfall since 1980.
+
+Load Marsabit shapefile
+
+```{r sp1}
+subloc <- data_ibli("marsabit")
+```
+
+Check names consistency before merging.
+
+```{r sp2}
+a = sort(unique(subloc$SUB_LOCATION))
+b = sort(unique(rain$SUBLOCATION))
+a[!a %in% b]
+
+```
+
+Now format sublocation names in shapefile to be consistent with those in rain.
+
+```{r sp3}
+subloc$SUB_LOCATION <- gsub("\\s*\\([^\\)]+\\)","",subloc$SUB_LOCATION)
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="MARSABIT TOWNSHIP"] <- "TOWNSHIP"
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="MARSABIT TOWNSHIP"] <- "TOWNSHIP"
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="MT. KULAL" ] <- "MT KULAL" 
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="LONYORIPICHAU" ] <- "LONYORI PICHAU" 
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="EL-HADI" ] <- "EL-HARDI" 
+subloc$SUB_LOCATION[subloc$SUB_LOCATION=="KURUNGU" ] <- "KARUNGU"
+
+```
+
+Now merge rainfall & NDVI data with sublocation boundary information and plot LRLD and SRSD spatial variation maps.
+
+```{r sp4}
+#rainfall
+r <- aggregate(rain[, c("zrain","rainfall"), drop=FALSE], rain[,c("SUBLOCATION", "season"), drop=FALSE],mean, na.rm=T)
+#ndvi
+n3 <- aggregate(ndvi~SUBLOCATION+season, data=ndvi,mean, na.rm=T)
+temp <- merge(n3, r, by=c("SUBLOCATION","season"))
+#LRLD
+lr <- merge(subloc, temp[temp$season=="LRLD",], by.x="SUB_LOCATION", by.y="SUBLOCATION")
+#SRSD
+sr <- merge(subloc, temp[temp$season=="SRSD",], by.x="SUB_LOCATION", by.y="SUBLOCATION")
+
+cols <- terrain.colors(length(lr$SUB_LOCATION),rev = T)
+#Rainfal spatial variation
+x11()
+spplot(lr, "rainfall", col.regions=cols, main="LRLD Average rainfal per Sub-location: 1982-2019")
+x11()
+spplot(sr, "rainfall", col.regions=cols, main="SRSD Average rainfall per Sub-location: 1982-2019")
+
+#NDVI spatial variation
+x11()
+spplot(lr, "ndvi", col.regions=cols, main="LRLD Average NDVI per Sub-location: 1982-2019")
+x11()
+spplot(sr, "ndvi", col.regions=cols, main="SRSD Average NDVI per Sub-location: 1982-2019")
+
+```
+
+## Modelling Mortality
+
+### Introduction
+
+To design and evaluate an index based insurance contract, we need to understand the relationship between the index and losses incurred. Here we develop such a relationship using the z-scored rainfall and NDVI to predict livestock mortality, using survey data from Marsabit.
+
+We mainly care about the mortality rates. Therefore, compute aggregates by year, season and sublocation.
+
+```{r m1}
+mort <- mort[mort$type == "TLU", ]
+amort <- aggregate(mort[,c("stock_beginning", "loss")], mort[ , c("year", "season", "sublocation")], sum, na.rm=TRUE)
+head(amort, n=2)
+amort$mortality_rate = 1 - ((amort$stock_beginning - amort$loss) / amort$stock_beginning )
+amort$mortality_rate[amort$mortality_rate==0] <- NA
+```
+
+Merge mortality with NDVI and rainfal data.
+
+```{r m2}
+colnames(ndvi)[1] <- "sublocation"
+d <- merge(ndvi, amort, by=c("year", "season", "sublocation"))
+colnames(rain)[1] <- "sublocation"
+d <- merge(rain, d, by=c("year", "season", "sublocation"))
+
+```
+
+
+Explore the relation between mortality and NDVI.
+
+```{r m3}
+cols <- c("red", "blue")
+seas <- c("SRSD", "LRLD")
+pcols <- cols[match(d$season, seas)]
+x11()
+plot(mortality_rate~zrain, data=d, xlab="rainfall (mm)", ylab="mortality", col=pcols, pch=20)
+legend("topright", seas, col=cols, pch=20)
+#NDVI
+x11()
+plot(mortality_rate~zndvi, data=d, xlab="NDVI", ylab="mortality", col=pcols, pch=20)
+legend("topright", seas, col=cols, pch=20)
+
+```
+
+
+The relationship is a bit noisy (as to be expected). There is a lot of variability at *zNDVI < -1* and *zrain < -1*. That could be a problem; as predictions of mortality at low zNDVI would be quite uncertain.
+
+### Mortality model
+
+Build a local regression model.
+
+```{r m4, message=FALSE}
+dd <- na.omit(d[, c("zndvi", "zrain", "mortality_rate")])
+library(msir)
+m <- loess.sd(dd$zndvi, dd$mortality_rate)
+plot(dd$zndvi, dd$mortality_rate, cex=0.5, col="blue", xlab="zNDVI", ylab="Mortality rate", main="NDVI Mortality Model")
+lines(m$x, m$y, col="red")
+lines(m$x, m$upper, lty=2)
+lines(m$x, m$lower, lty=2)
+
+#rainfall
+m <- loess.sd(dd$zrain, dd$mortality_rate)
+plot(dd$zrain, dd$mortality_rate, cex=0.5, col="blue", xlab="z-rainfall", ylab="Mortality rate", main="Rainfall Mortality Model")
+lines(m$x, m$y, col="red")
+lines(m$x, m$upper, lty=2)
+lines(m$x, m$lower, lty=2)
+
+```
+
+Compare predicted with observed mortality rates.
+
+```{r m5}
+#Rainfall
+ml <- loess(mortality_rate ~ zrain , data=dd)
+p <- predict(ml, dd)
+plot(dd$mortality_rate, p, xlab="mortality rate", ylab="predicted", main="Rainfall model", pch=16, cex.axis=1.3, cex.lab=1.3)
+abline(0,1, lwd=2, col="red")
+#NDVI
+ml <- loess(mortality_rate ~ zndvi , data=dd)
+p <- predict(ml, dd)
+plot(dd$mortality_rate, p, xlab="mortality rate", ylab="predicted", main="NDVI model", pch=16, cex.axis=1.3, cex.lab=1.3)
+abline(0,1, lwd=2, col="red")
+#rainfall+NDVI
+ml <- loess(mortality_rate ~ zndvi + zrain , data=dd)
+p <- predict(ml, dd)
+plot(dd$mortality_rate, p, xlab="mortality rate", ylab="predicted", main="NDVI & rainfal model", pch=16, cex.axis=1.3, cex.lab=1.3)
+abline(0,1, lwd=2, col="red")
+
+```
+
