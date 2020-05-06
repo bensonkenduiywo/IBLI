@@ -386,12 +386,7 @@ p <- predict(m_n, dd)
 plot(dd$mortality_rate, p, xlab="Observed mortality", ylab="Predicted mortality", main="NDVI model", pch=16, cex.axis=1.2, cex.lab=1.2, cex=0.7)
 abline(0,1, lwd=2, col="red")
 cat("NDVI model Residual Standard Error: ", m_n$s, "\n")
-#rainfall+NDVI
-m_c <- loess(mortality_rate ~ zndvi + zrain , data=dd)
-p <- predict(m_c, dd)
-plot(dd$mortality_rate, p, xlab="Observed mortality", ylab="Predicted mortality", main="NDVI & rainfal model", pch=16, cex.axis=1.2, cex.lab=1.2, cex=0.7)
-abline(0,1, lwd=2, col="red")
-cat("NDVI & Rainfall model Residual Standard Error: ", m_c$s, "\n")
+
 ```
 
 We can observe that NDVI & Rainfall model has the least residual Standard Error while NDVI model has the highest standard error indicating low prediction accuracy. We will compare how rainfall and NDVI model to predicts mortality in other years based on their Z-scored *NDVI* and rainfall.
@@ -399,16 +394,27 @@ We can observe that NDVI & Rainfall model has the least residual Standard Error 
 ```{r m6}
 df <- merge(ndvi, rain, by = c("sublocation", "year", "season"))
 #df$year_season <- apply(ndvi[, c("year", "season")], 1, function(x) paste(x, collapse="_"))
+
 head(df, n=2)
 #Rainfall predicts
-df$rain_mortality <- predict(m_r, df)
-par(mai=c(1,2.5,1,1))
-boxplot(df$rain_mortality ~ df$year, ylab="Predicted mortality rate", xlab="Year", cex= 0.5, cex.lab=1.2, main="Rainfall model")
+df$rain_mortality <- predict(m_r, df) 
+y <- aggregate(rain_mortality~year, df, mean, na.rm=T)
+y$r_pay <- y$r_pay[order(y$year)]
+y$year <- y$year[order(y$year)]
+x11()
+plot(rain_mortality* 100~year, data=y, type="l", ylab="Mortality rate (%)", main="Average annual mortality rate using rain data",  axes=FALSE, cex.lab=1.2)
+axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
+axis(side=2, at=seq(0, 20, 5), cex.axis=1.1)
+box()
 
 #NDVI predictions
-df$ndvi_mortality <- predict(m_n, df)
-par(mai=c(1,2.5,1,1))
-boxplot(df$ndvi_mortality ~ df$year, ylab="Predicted mortality rate", xlab="Year", cex= 0.5, cex.lab=1.2, main="NDVI model")
+df$ndvi_mortality <- predict(m_n, df) 
+y <- aggregate(ndvi_mortality~year, df, mean, na.rm=T)
+x11()
+plot(ndvi_mortality * 100 ~year, data=y, type="l", ylab="Mortality rate (%)", main="Average annual mortality rate using NDVI data",  axes=FALSE, cex.lab=1.2)
+axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
+axis(side=2, at=seq(0, 20, 5), cex.axis=1.1)
+box()
 
 ```
 
@@ -417,13 +423,14 @@ boxplot(df$ndvi_mortality ~ df$year, ylab="Predicted mortality rate", xlab="Year
 Now that we have a relationship between NDVI and mortality, we can design an insurance contract. Remove some of the higher mortality predictions that occur with high NDVI and rainfall. They are not relevant for us.
 
 ```{r m7}
-df$rain_mortality[df$zrain > 0.1] <- 0.1
-df$ndvi_mortality[df$zrain > 0.1] <- 0.1
+#df$rain_mortality[df$zrain > 0.1] <- 0.1
+#df$ndvi_mortality[df$zrain > 0.1] <- 0.1
 ```
 
-Assume we design an insurance contract that pays every five years. Let define a trigger using 80th percentile value of rainfall and ndvi mortality predictions. For instance, when mortality is above 10%.
+Assume we design an insurance contract that pays when mortality rate falls below the *80th percentile* of the long term series.
 
 ```{r m8}
+df <- na.omit(df)
 r_trig <- quantile(df$rain_mortality, 0.80, na.rm=T)
 round(r_trig, 2)
 n_trig <- quantile(df$ndvi_mortality, 0.80, na.rm=T)
@@ -431,27 +438,66 @@ round(n_trig, 2)
 
 ```
 
-The trigger first occurs at this *zNDVI* and *zrainfall*.
+The trigger first occurs at the following *zNDVI* and *z-rainfall*.
 
 ```{r m9}
-df <- na.omit(df)
-#zNDVI
-tndvi <- max(df$zndvi[df$rain_mortality > r_trig])
+tndvi <- max(df$zndvi[df$ndvi_mortality > n_trig])
 round(tndvi, 2)
-#zrainfall
-train <- max(df$zrain[df$ndvi_mortality > n_trig])
+train <- max(df$zrain[df$rain_mortality > r_trig])
 round(train, 2)
+
 ```
 
-The payout — in units of the monetary value of TLU — can be computed as simply the percentage difference between predicted mortality in TLU and the trigger. Those below the trigger get no payout. We assume that 1 TLU has a monetary equivalence of 1000$.
- 
+Now let analyse plots of our designed contract.
+
+```{r m9b}
+temp <- merge(d[,-c(4:7)], df, by = c("sublocation", "year", "season"))
+x11()
+plot(ndvi_mortality~zndvi, data=df, xlab="zNDVI", ylab="Predicted mortality", pch=16, cex=0.7)
+abline(h=n_trig,col="green")
+abline(v=tndvi,col="red")
+text(1,0.3, "False Positive")
+text(-2,0.05, "False Negatives")
+x11()
+plot(rain_mortality~zrain,data=df, xlab="z-rainfall", ylab="Predicted mortality", pch=16, cex=0.7)
+abline(h=r_trig,col="green")
+abline(v=train,col="red")
+```
+
+
+The payout — in units of the monetary value of TLU — are computed following the proposed approach by [Vrieling et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0034425715302248). It uses z-Scored  of an index, e.g *NDVI*, from a season *s* in an insurance location *l* (*zNDVI*$_{ls}$), to estimate indemnity payouts (**as percentage of the insured amount**) *P*  as
+
+$$
+    P = \begin{cases} 100,    & \text{if } zNDVI_{ls} < exit  \\
+    100 \times \frac{trigger - zNDVI_{ls} }{ trigger - exit }, & \text{if } trigger > zNDVI_{ls} > exit\\
+    0,   & \text{if } zNDVI_{ls} >  trigger
+    \end{cases}
+$$
+
+where the *trigger* is the z-score **threshold** below which the insurance pays, and *exit* is the z-score level corresponding to maximum payment (e.g. 100\% or basically the lowest *zNDVI*$_{ls}$ ). We adopt the trigger at the *80th percentile* of long-term predicted mortality. On the other hand, the exit is approximated as the 5th percentile of the index. 
+
+```{r epay}
+epay <- function(index, trigger, exit, frac=1) {
+  index <- pmax(index, exit)
+  frac * pmax( 0, (trigger-index) / (trigger-exit) )
+}
+```
+
+Now we use the function to compute payouts based on NDVI and rainfall indices.
+
 ```{r m10}
-df$r_pay <- pmax(0, df$rain_mortality - r_trig) * 1000
-df$n_pay <- pmax(0, df$ndvi_mortality - n_trig) * 1000
+#NDVI based 
+#exit   <- min(df$zndvi)
+exit <- quantile(df$zndvi, 0.05)
+df$n_pay <- epay(df$zndvi, tndvi, exit, 1) * 1000
+#Rainfall based 
+#exit   <- min(df$zrain)
+exit <- quantile(df$zrain, 0.05)
+df$r_pay <- epay(df$zrain, train, exit, 1) * 1000
 
 ```
 
-Plots for payouts and triggers.
+Plots for payouts
 
 ```{r m11}
 #Rainfall
@@ -482,20 +528,23 @@ boxplot(n_pay~year, data=df,cex=.25,main="Average annual payouts based using NDV
 
 ```
 
-Let's explore one contract by
+Let's explore how the payout function behaves.
 
-```{r test}
-# need to adjust for payout scale (not TLUs?)
-epay <- function(zNDVI, trigger=-0.842, exit=-2.326, frac=0.5) {
-  zNDVI <- pmax(zNDVI, exit)
-  frac * pmax( 0, (trigger-zNDVI) / (trigger-exit) )
-}
-
-plot(epay(zndvi)~zndvi, type="l", data=df)
+```{r m12}
+#Plot NDVI payout function
+x11()
+plot(n_pay[order(n_pay)]~zndvi[order(n_pay)], data=df, ylab="Payouts (USD)", xlab="zNDVI", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l")
+abline(v=tndvi, col="red")
+#Plot rainfall payout function
+x11()
+plot(r_pay[order(r_pay)]~zrain[order(r_pay)], data=df, ylab="Payouts (USD)", xlab="z-rainfall", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l")
+abline(v=train, col="red")
 ```
 
 
-
+```{r}
+#dd
+```
 
 
 ``
