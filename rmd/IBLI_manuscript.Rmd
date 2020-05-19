@@ -304,10 +304,7 @@ amort$mortality_rate <- amort$loss/amort$stock_beginning
 
 ```
 
-
-
 We mainly care about the mortality rates. Therefore, compute aggregates by year, season and sublocation.
-
 
 ```{r m1}
 # mort <- mort[mort$type == "TLU", ]
@@ -343,7 +340,6 @@ plot(mortality_rate~zndvi, data=d, xlab="NDVI", ylab="mortality", col=pcols, pch
 legend("topright", seas, col=cols, pch=20)
 
 ```
-
 
 The relationship is a bit noisy (as to be expected). There is a lot of variability at *zNDVI < -1* and *zrain < -1*. That could be a problem; as predictions of mortality at low zNDVI would be quite uncertain. This is why we will do a simulation later.
 
@@ -389,7 +385,7 @@ cat("NDVI model Residual Standard Error: ", m_n$s, "\n")
 
 ```
 
-We can observe that NDVI & Rainfall model has the least residual Standard Error while NDVI model has the highest standard error indicating low prediction accuracy. We will compare how rainfall and NDVI model to predicts mortality in other years based on their Z-scored *NDVI* and rainfall.
+We can observe that NDVI & Rainfall model has the least residual Standard Error while NDVI model has the highest standard error indicating low prediction accuracy. We will compare how rainfall and NDVI model predicts mortality in other years based on their Z-scored *NDVI* and rainfall.
 
 ```{r m6}
 df <- merge(ndvi, rain, by = c("sublocation", "year", "season"))
@@ -399,8 +395,6 @@ head(df, n=2)
 #Rainfall predicts
 df$rain_mortality <- predict(m_r, df) 
 y <- aggregate(rain_mortality~year, df, mean, na.rm=T)
-y$r_pay <- y$r_pay[order(y$year)]
-y$year <- y$year[order(y$year)]
 x11()
 plot(rain_mortality* 100~year, data=y, type="l", ylab="Mortality rate (%)", main="Average annual mortality rate using rain data",  axes=FALSE, cex.lab=1.2)
 axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
@@ -420,16 +414,9 @@ box()
 
 ### Design
 
-Now that we have a relationship between NDVI and mortality, we can design an insurance contract. Remove some of the higher mortality predictions that occur with high NDVI and rainfall. They are not relevant for us.
+Now that we have a relationship between NDVI and mortality, we can design an insurance contract. Let us assume we design an insurance contract that pays when mortality rate falls below the *80th percentile* of the long term series.
 
 ```{r m7}
-#df$rain_mortality[df$zrain > 0.1] <- 0.1
-#df$ndvi_mortality[df$zrain > 0.1] <- 0.1
-```
-
-Assume we design an insurance contract that pays when mortality rate falls below the *80th percentile* of the long term series.
-
-```{r m8}
 df <- na.omit(df)
 r_trig <- quantile(df$rain_mortality, 0.80, na.rm=T)
 round(r_trig, 2)
@@ -440,7 +427,7 @@ round(n_trig, 2)
 
 The trigger first occurs at the following *zNDVI* and *z-rainfall*.
 
-```{r m9}
+```{r m8}
 tndvi <- max(df$zndvi[df$ndvi_mortality > n_trig])
 round(tndvi, 2)
 train <- max(df$zrain[df$rain_mortality > r_trig])
@@ -450,51 +437,24 @@ round(train, 2)
 
 Now let analyse plots of our designed contract.
 
-```{r m9b}
-temp <- merge(d[,-c(4:7)], df, by = c("sublocation", "year", "season"))
+```{r m9}
 x11()
-plot(ndvi_mortality~zndvi, data=df, xlab="zNDVI", ylab="Predicted mortality", pch=16, cex=0.7)
+plot(ndvi_mortality[order(zndvi)]~zndvi[order(zndvi)], data=df, xlab="zNDVI", ylab="Predicted mortality", pch=16, type="l", lwd=1.2)
 abline(h=n_trig,col="green")
 abline(v=tndvi,col="red")
 text(1,0.3, "False Positive")
 text(-2,0.05, "False Negatives")
 x11()
-plot(rain_mortality~zrain,data=df, xlab="z-rainfall", ylab="Predicted mortality", pch=16, cex=0.7)
+plot(rain_mortality[order(zrain)]~zrain[order(zrain)], data=df, xlab="z-rainfall", ylab="Predicted mortality", pch=16, type="l", lwd=1.2)
 abline(h=r_trig,col="green")
 abline(v=train,col="red")
 ```
 
-
-The payout — in units of the monetary value of TLU — are computed following the proposed approach by [Vrieling et al. (2016)](https://www.sciencedirect.com/science/article/abs/pii/S0034425715302248). It uses z-Scored  of an index, e.g *NDVI*, from a season *s* in an insurance location *l* (*zNDVI*$_{ls}$), to estimate indemnity payouts (**as percentage of the insured amount**) *P*  as
-
-$$
-    P = \begin{cases} 100,    & \text{if } zNDVI_{ls} < exit  \\
-    100 \times \frac{trigger - zNDVI_{ls} }{ trigger - exit }, & \text{if } trigger > zNDVI_{ls} > exit\\
-    0,   & \text{if } zNDVI_{ls} >  trigger
-    \end{cases}
-$$
-
-where the *trigger* is the z-score **threshold** below which the insurance pays, and *exit* is the z-score level corresponding to maximum payment (e.g. 100\% or basically the lowest *zNDVI*$_{ls}$ ). We adopt the trigger at the *80th percentile* of long-term predicted mortality. On the other hand, the exit is approximated as the 5th percentile of the index. 
-
-```{r epay}
-epay <- function(index, trigger, exit, frac=1) {
-  index <- pmax(index, exit)
-  frac * pmax( 0, (trigger-index) / (trigger-exit) )
-}
-```
-
-Now we use the function to compute payouts based on NDVI and rainfall indices.
+The payout — in units of monetary value of TLU — can be computed as simply the percentage difference between predicted mortality in TLU and the trigger. Those below the trigger get no payout. We assume that 1 TLU has a monetary equivalence of 1000$.
 
 ```{r m10}
-#NDVI based 
-#exit   <- min(df$zndvi)
-exit <- quantile(df$zndvi, 0.05)
-df$n_pay <- epay(df$zndvi, tndvi, exit, 1) * 1000
-#Rainfall based 
-#exit   <- min(df$zrain)
-exit <- quantile(df$zrain, 0.05)
-df$r_pay <- epay(df$zrain, train, exit, 1) * 1000
-
+df$r_pay <- pmax(0, df$rain_mortality - r_trig) * 1000
+df$n_pay <- pmax(0, df$ndvi_mortality - n_trig) * 1000
 ```
 
 Plots for payouts
@@ -505,7 +465,7 @@ y <- aggregate(r_pay~year+season, df, mean, na.rm=T)
 y$r_pay <- y$r_pay[order(y$year)]
 y$year <- y$year[order(y$year)]
 x11()
-plot(r_pay~year, data=y, type="l", ylab="Payouts (USD)", main="Average annual payouts using rain data",  axes=FALSE, cex.lab=1.2)
+plot(r_pay~year, data=y, type="l", ylab="Payouts (USD)", main="Average annual payouts using rain data",  axes=FALSE, cex.lab=1.1)
 axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
 axis(side=2, at=seq(0, round(max(y$r_pay,-1)), by=round(max(y$r_pay)/10,-1) ), cex.axis=1.1)
 box()
@@ -534,18 +494,70 @@ Let's explore how the payout function behaves.
 #Plot NDVI payout function
 x11()
 plot(n_pay[order(n_pay)]~zndvi[order(n_pay)], data=df, ylab="Payouts (USD)", xlab="zNDVI", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l")
-abline(v=tndvi, col="red")
+#abline(v=tndvi, col="red")
 #Plot rainfall payout function
 x11()
-plot(r_pay[order(r_pay)]~zrain[order(r_pay)], data=df, ylab="Payouts (USD)", xlab="z-rainfall", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l")
-abline(v=train, col="red")
+plot(r_pay[order(r_pay)]~zrain[order(r_pay)], data=df, ylab="Payouts (USD)", xlab="z-rainfall", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l", lwd=1.2)
+#abline(v=train, col="red", lwd=1.2)
+
 ```
 
+### Evaluation
 
-```{r}
-#dd
+We now need to assess the welfare of index insurance to the pastoralists. To achieve this, we adopt the Minimum Quality Standard (MQS) test by *Carter and Steinmetz (2018)*. The goal of MQS test is to answer the question; "would a household be better off with or without insurance?" If the household would be better off economically buying insurance, then we will say that the insurance contract meets the MQS. Basically, contracts that fail too often and at the wrong times can make farmers worse off, i.e. a farmer looses both insurance premium and livestock. This is why the MQS test is conducted to evaluate the welfare of agriculture insurance contracts.
+
+The *Certainty Equivalence* (CE) is a key concept in evaluating welfare of insurance programs. It expresses the value of an uncertain stream of income $y$ (one year you earn more, another year you earn less) in terms of a stable income. Most people prefer a stable income to an unstable income, even if that unstable income is (somewhat) higher on average. This is because of having a year with a low income can have a great negative effect on someone's welfare. CE  can be computed using a utility function as,
+
+$$
+    U(y) = \begin{cases} y^{(1-\rho)} / {(1-\rho)}    & \text{if } \rho \neq 1 \\
+    \ln (y) & \text{if } \rho = 1
+    \end{cases}
+$$
+
+where $rho$ is a household's/individual's level of risk aversion and higher $rho$ indicates higher levels of risk aversion. Here, *risk aversion* refers to the degree to which households are averse to (avoid) losses relative to gains ([Jensen et. al 2019](https://doi.org/10.1016/j.ecolecon.2019.04.014)). For example, a risk averse person is one who prefers lower returns with known risk rather than higher returns with unknown risks. Essentially, a utility function expresses the diminishing returns to increased income. For instance, a pastrolist derives more additional utility if their income increases from $100 to $300 than if goes from $4000 to $4300. How much exactly?, is hard to say. It depends on your preferences and circumstances. Therefore, the utility function is an important concept that measures *preferences* over a set of rewarding outcomes. The economist's utility function is thus a *weighting function* that tells us how much we dread the bad state of the world. Therefore, given a stream of income of a pastrolist CE can be determined as
+
+$$
+    ce(y) = \begin{cases} \exp(\sigma)    & \text{if } \rho = 1 \\
+     (1 - \rho)^{\frac{1}{1 - \rho}} & \text{otherwise}
+    \end{cases}
+$$
+
+where $\sigma=E[u(y)]$ i.e. expected utility.
+
+We finally determine the welfare of insurance using the MQS test based on CE with insurance $ce(y_i)$ and without $ce(y)$ as:
+
+$$
+    mqs(y) = \begin{cases} \text{if }  ce(y_i) < ce(y)  & \text{Bad } \\
+     \text{if }  ce(y_i) = ce(y) & \text{Neutral}\\
+     \text{if }  ce(y_i) > ce(y) & \text{Good}
+    \end{cases}
+$$
+
+The MQS has 3 outcomes based on the insurance contract i.e. negative value, zero, and positive which corresponds to bad, neutral and good respectively. Remember, the MQS test goal is to answer the question; "**would a farmer be better off with insurance or without insurance?**" If the farmer would be better off economically buying insurance, then we will say that the insurance contract meets the **Minimum Quality Standard (MQS)** hence positive value.
+
+
+So get the CE function.
+
+```{r e1}
+data <- df[df$year >=2008,]
+temp <- na.omit(d[, c("sublocation", "season", "year", "mortality_rate")])
+data <- merge(data, temp, by=c("sublocation", "season", "year"))
 ```
 
+Compute mortality losses as the difference between the observed mortality (mortality_rate) and the trigger we adopted previously. 
+
+```{r e2}
+trigger <- round(mean(r_trig,n_trig), 2)
+data$loss <- pmax(0, data$mortality_rate - trigger) * 1000
+
+```
+
+### References
+
+Carter, Michael and Tara Steinmetz (2018). “Quality Standards for Agricultural Index Insurance: An Agenda for Action,” in *State of Microfinance*, MunichRE.
+
+
+Jensen, N., Stoeffler, Q., Fava, F., Vrieling, A., Atzberger, C., Meroni, M., Mude, A. & Carter, M. (2019). [Does the design matter? Comparing satellite-based indices for insuring pastoralists against drought](https://doi.org/10.1016/j.ecolecon.2019.04.014). *Ecological economics*, 162, 59-73.
 
 ``
 
