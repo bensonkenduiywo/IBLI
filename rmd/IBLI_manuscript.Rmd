@@ -3,6 +3,8 @@ title: "IBLI contract design and evaluation based on chirps and NDVI"
 author: "Benson Kenduiywo"
 date: "22/11/2019"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -535,27 +537,140 @@ $$
 
 The MQS has 3 outcomes based on the insurance contract i.e. negative value, zero, and positive which corresponds to bad, neutral and good respectively. Remember, the MQS test goal is to answer the question; "**would a farmer be better off with insurance or without insurance?**" If the farmer would be better off economically buying insurance, then we will say that the insurance contract meets the **Minimum Quality Standard (MQS)** hence positive value.
 
-
-So get the CE function.
+Prepare data.
 
 ```{r e1}
 data <- df[df$year >=2008,]
-temp <- na.omit(d[, c("sublocation", "season", "year", "mortality_rate")])
+temp <- na.omit(d[, c("sublocation", "season", "year", "mortality_rate", "stock_beginning")])
 data <- merge(data, temp, by=c("sublocation", "season", "year"))
 ```
 
-Compute mortality losses as the difference between the observed mortality (mortality_rate) and the trigger we adopted previously. 
+Compute pastrolist capital as the percentage of TLU remaining after losses. NB: 1 TLU is $1000.
 
 ```{r e2}
-trigger <- round(mean(r_trig,n_trig), 2)
-data$loss <- pmax(0, data$mortality_rate - trigger) * 1000
+data$capital <- (1 - data$mortality_rate) * 1000
+```
+
+
+Let us assess the welfare of index insurance to the pastoralists. So get the CE function.
+
+```{r e3}
+ce_income
+```
+
+We will compute income with and without insurance. The Actuary Fair Premium (AFP) is given us as average indemnities $I$ i.e. 
+$$
+ \text{afp} = \sum_{i=1}^{n} \frac{I_i}{n}
+$$
+where $n$ is the number of payouts.
+
+In this case the market price of the premium includes some mark-up $m$ for to cater for administrative cost, hence the premium $P$ is given as:
+
+$$
+ \text{P} = \text{afp} \times (1 + m)
+$$
+
+Assume the premium that is paid for IBLI insurance as equivalent to the expected payouts with a mark up of 25%. We will basically compare the IBLI welfare based on the observed mortality losses and predicted mortality based on rainfall and NDVI.
+
+```{r e4}
+markup <- 0.25
+#NDVi
+n_premium <- mean(data$n_pay) * (1 + markup)
+n_premium
+df1 <- data.frame(y_noins = data$capital)
+df1$y_nomarkup <- (data$capital + data$n_pay) - mean(data$n_pay)
+df1$y_25markup <- (data$capital + data$n_pay) - n_premium
+
+#Rainfall model premiums
+r_premium <- mean(data$r_pay) * (1 + markup)
+r_premium
+df2 <- data.frame(y_noins = data$capital)
+df2$y_nomarkup <- (data$capital + data$r_pay) - mean(data$r_pay)
+df2$y_25markup <- (data$capital + data$r_pay) - r_premium
 
 ```
+
+Let us compute CE over $0 \leq \rho \leq 10$ and plot CE pay in USD when there is no mark up on insurance (*ce_ins_nomarkup*), when insurance is 25% marked up (*ce_ins*) and a case where no insurance is taken by pastrolist (*ce_base*).
+
+```{r e6}
+ce <- function(rhos, ce_base, ce_ins, ce_ins_nomarkup, df1){
+  for(i in 1:length(rhos)){
+    ce_base[i] <- ce_income(df1$y_noins, rhos[i])
+    ce_ins[i]  <- ce_income(df1$y_25markup, rhos[i])
+    ce_ins_nomarkup[i] <- ce_income(df1$y_nomarkup, rhos[i])
+  }
+  return(list(ce_base=ce_base, ce_ins=ce_ins,ce_ins_nomarkup=ce_ins_nomarkup))
+}
+
+rhos <- seq(0, 5, .1)
+#NDVI
+ce_base <- ce_ins <- ce_ins_nomarkup <- rep(NA,length(rhos))
+n_ce <- ce(rhos, ce_base, ce_ins, ce_ins_nomarkup, df1)
+
+#RAINFALL
+ce_base <- ce_ins <- ce_ins_nomarkup <- rep(NA,length(rhos))
+r_ce <- ce(rhos, ce_base, ce_ins, ce_ins_nomarkup, df2)
+
+x11()
+plot(rhos, n_ce$ce_base, type="l", ylab= "Pay per TLU (USD)", xlab="CRRA", cex=2)
+lines(rhos, n_ce$ce_ins, col="blue")
+lines(rhos, n_ce$ce_ins_nomarkup, col="green")
+lines(rhos, r_ce$ce_ins, col="red")
+lines(rhos, r_ce$ce_ins_nomarkup, col="magenta")
+legend("bottomleft", c("No insurance", "NDVI 25% Marked-up", "NDVI No mark up", "Rainfall 25% Marked-up", "Rainfall No mark up"), lty=1, col=c("black", "blue", "green", "red","magenta"), title = "Insurance type", bty = "n")
+
+```
+
+We can observe that insurance with no mark up is always beneficial. On the other hand, insurance that is marked-up starts being beneficial for persons with risk aversion factor above 1.5. Basically, risk neutral pastrolist would not derive any benefit from this insurance contract.
+
+Let do the *MQS test* using the same values of CRRA and make a plot to determine pastrolist welfare with and without insurance.
+
+```{r e7}
+test <- function(rhos, df1){
+  ce_base <- ce_ins <- mqs <- mqs_no <- rep(NA, length(rhos))
+    for(i in 1:length(rhos)){
+      ce_base[i] <- ce_income(df1$y_noins, rhos[i])
+      ce_ins[i]  <- ce_income(df1$y_25markup, rhos[i])
+      ce_ins_nomarkup[i] <- ce_income(df1$y_nomarkup, rhos[i])
+      mqs[i]    <- ce_ins[i] - ce_base[i]
+      mqs_no[i] <- ce_ins_nomarkup[i] - ce_base[i]
+    }
+  return(list(mqs=mqs,mqs_no=mqs_no))
+}
+
+#NDVI
+mqs_n <- test(rhos,df1)
+#Rainfal
+mqs_r <- test(rhos,df2)
+
+x11()
+plot(rhos, mqs_n$mqs, type="l", col="red", ylab= "MQS (insurance benefit per TLU in USD)", xlab="CRRA", cex=2, ylim=c(-10, 60))
+lines(rhos, mqs_n$mqs_no, col="green")
+lines(rhos, mqs_r$mqs_no, col="black")
+lines(rhos, mqs_r$mqs, col="blue")
+abline(h=0, col="black", cex=0.6)
+legend("topleft", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "black", "blue"), title = "Insurance type", bty = "n")
+
+#text(3, 5, "Good", cex=1.2)
+#text(3, 0, "Neutral", cex=1.2)
+#text(3, -3, "bad", cex=1.2)
+```
+
+### Simulation
+
+On the above experiments we have used observed mortality rates to estimate capital/income for a pastrolist per TLU. In principle we assumed that each farmer had 1 TLU in the absence of loss. We then proceeded to evaluate insurance contracts using predicted mortality rates. However, there is uncertainty that is associated with our prediction model. Therefore we conduct a simulation of pay based on 95% confidence interval of the model’s predictions.
+
+```{r s1}
+dd <- na.omit(d[, c("zndvi", "zrain", "mortality_rate")])
+library(msir)
+m <- loess.sd(dd$zndvi, dd$mortality_rate)
+```
+
+
 
 ### References
 
 Carter, Michael and Tara Steinmetz (2018). “Quality Standards for Agricultural Index Insurance: An Agenda for Action,” in *State of Microfinance*, MunichRE.
-
 
 Jensen, N., Stoeffler, Q., Fava, F., Vrieling, A., Atzberger, C., Meroni, M., Mude, A. & Carter, M. (2019). [Does the design matter? Comparing satellite-based indices for insuring pastoralists against drought](https://doi.org/10.1016/j.ecolecon.2019.04.014). *Ecological economics*, 162, 59-73.
 
