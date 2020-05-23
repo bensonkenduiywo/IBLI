@@ -4,7 +4,7 @@ author: "Benson Kenduiywo"
 date: "22/11/2019"
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -612,7 +612,7 @@ ce_base <- ce_ins <- ce_ins_nomarkup <- rep(NA,length(rhos))
 r_ce <- ce(rhos, ce_base, ce_ins, ce_ins_nomarkup, df2)
 
 x11()
-plot(rhos, n_ce$ce_base, type="l", ylab= "Pay per TLU (USD)", xlab="CRRA", cex=2)
+plot(rhos, n_ce$ce_base, type="l", ylab= "Certainty Equivalent (USD per TLU)", xlab="CRRA", cex=2)
 lines(rhos, n_ce$ce_ins, col="blue")
 lines(rhos, n_ce$ce_ins_nomarkup, col="green")
 lines(rhos, r_ce$ce_ins, col="red")
@@ -639,17 +639,17 @@ test <- function(rhos, df1){
 }
 
 #NDVI
-mqs_n <- test(rhos,df1)
+mqs_n <- test(rhos, df1)
 #Rainfal
-mqs_r <- test(rhos,df2)
+mqs_r <- test(rhos, df2)
 
 x11()
 plot(rhos, mqs_n$mqs, type="l", col="red", ylab= "MQS (insurance benefit per TLU in USD)", xlab="CRRA", cex=2, ylim=c(-10, 60))
 lines(rhos, mqs_n$mqs_no, col="green")
-lines(rhos, mqs_r$mqs_no, col="black")
+lines(rhos, mqs_r$mqs_no, col="magenta")
 lines(rhos, mqs_r$mqs, col="blue")
 abline(h=0, col="black", cex=0.6)
-legend("topleft", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "black", "blue"), title = "Insurance type", bty = "n")
+legend("topleft", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
 
 #text(3, 5, "Good", cex=1.2)
 #text(3, 0, "Neutral", cex=1.2)
@@ -658,14 +658,78 @@ legend("topleft", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark u
 
 ### Simulation
 
-On the above experiments we have used observed mortality rates to estimate capital/income for a pastrolist per TLU. In principle we assumed that each farmer had 1 TLU in the absence of loss. We then proceeded to evaluate insurance contracts using predicted mortality rates. However, there is uncertainty that is associated with our prediction model. Therefore we conduct a simulation of pay based on 95% confidence interval of the model’s predictions.
+On the above experiments we have used observed mortality rates (2008--2014) to estimate capital/income for a pastrolist per TLU. In principle we assumed that each farmer had 1 TLU in the absence of loss. We then proceeded to evaluate insurance contracts using predicted mortality rates. However, there is uncertainty that is associated with our prediction model. Therefore we conduct a simulation of pay based on 95% confidence interval of the model’s predictions.
+
+Create a model that predicts mortality from zNDVI and rainfall with variability bands.
 
 ```{r s1}
-dd <- na.omit(d[, c("zndvi", "zrain", "mortality_rate")])
-library(msir)
-m <- loess.sd(dd$zndvi, dd$mortality_rate)
+#NDVI
+m_n <- loess.sd(data$zndvi, data$mortality_rate)
+fitm_n <- cbind(fit=m_n$model$fitted, sd=m_n$sd)
+#Rainfall
+m_r <- loess.sd(data$zrain, data$mortality_rate)
+fitm_r <- cbind(fit=m_r$model$fitted, sd=m_r$sd)
 ```
 
+
+Let us randomly draw 180 normally distributed samples a 1000 times from the model's distribution we created previously.
+
+```{r s2}
+ns <- 1000
+#NDVI
+n_sample <- apply(fitm_n, 1, function(i) {
+  pmin(1, pmax(0, rnorm(ns, i[1], i[2])))
+})
+n_sample <- t(n_sample)
+
+#Rainfall
+r_sample <- apply(fitm_r, 1, function(i) {
+  pmin(1, pmax(0, rnorm(ns, i[1], i[2])))
+})
+r_sample <- t(r_sample)
+
+```
+
+
+Let us now compute the MQS test using random draws from rainfall and NDVI distribution.
+
+```{r s3}
+rhos <- seq(0,5,1)
+simulate_mqs <- function(rhos, ns, payouts, premium, samples){
+  mqs <- mqs_no <- rep(NA, length(rhos))
+  for(j in 1:length(rhos)){
+    out_nomarkup <- out_ins <- out_base <- rep(NA, ns)
+    for (i in 1:ns) {
+      rho <- rhos[j]
+      y_noins <- (1 - samples[,i]) * 1000 #Capital or base $1000 per TLU
+      insurance_nomarkup <- y_noins + payouts
+      insurance <- insurance_nomarkup - premium
+      out_base[i] <- ce_income(y_noins, rho)
+      out_ins[i]  <- ce_income(insurance, rho)
+      out_nomarkup[i]  <- ce_income(insurance_nomarkup, rho)
+    }
+    mqs[j]     <-  mean(out_ins - out_base)
+    mqs_no[j]  <-  mean(out_nomarkup - out_base)
+  }
+  return(list(mqs=mqs,mqs_no=mqs_no))
+}
+  
+#NDVI
+mqs_n <- 0
+mqs_n <- simulate_mqs(rhos, ns, data$n_pay, n_premium, n_sample)
+#Rainfall
+mqs_r <- 0
+mqs_r <- simulate_mqs(rhos, ns, data$r_pay, r_premium, r_sample)
+
+x11()
+plot(rhos, mqs_n$mqs, type="l", col="red", ylab= "MQS (insurance benefit per TLU in USD)", xlab="CRRA", cex=2, ylim=c(-10, 90))
+lines(rhos, mqs_n$mqs_no, col="green")
+lines(rhos, mqs_r$mqs_no, col="magenta")
+lines(rhos, mqs_r$mqs, col="blue")
+abline(h=0, col="black", cex=0.6)
+legend("topleft", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
+
+```
 
 
 ### References
