@@ -215,7 +215,7 @@ c <- reshape(c, direction="wide", idvar="cause", timevar="year")
 colnames(c) <- gsub("loss.", "", colnames(c))
 c$cause <- gsub("/.*","", c$cause)
 c$cause <- gsub(" .*","", c$cause)
-c$cause[c$cause=="Just"]= "Lost"
+c$cause[c$cause=="Just"] = "Lost"
 c <- as.matrix(c)
 rownames(c) <- c[,1]
 cola <- c("red", "green", "blue", "grey40", "yellow", "black", "orange", "purple", "brown", "skyblue")
@@ -304,16 +304,6 @@ amort <- aggregate(mort[,c("stock_beginning", "loss"), drop=FALSE], mort[, c("se
 amort$mortality_rate <- amort$loss/amort$stock_beginning
 
 
-```
-
-We mainly care about the mortality rates. Therefore, compute aggregates by year, season and sublocation.
-
-```{r m1}
-# mort <- mort[mort$type == "TLU", ]
-# amort <- aggregate(mort[,c("stock_beginning", "loss")], mort[ , c("year", "season", "sublocation")], sum, na.rm=TRUE)
-# head(amort, n=2)
-# amort$mortality_rate = 1 - ((amort$stock_beginning - amort$loss) / amort$stock_beginning )
-# amort$mortality_rate[amort$mortality_rate==0] <- NA
 ```
 
 Merge mortality with NDVI and rainfall data.
