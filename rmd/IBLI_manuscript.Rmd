@@ -67,10 +67,15 @@ j <- m == "October"
 lines(p2$date[j], p2$rainfall[j], col="blue", cex=1.2)
 legend("topleft", lty = 1, col = c("red", "blue"), legend=c('September','October'), title="Month")
 
+#Normalize data function (0-1)
+nor <- function(x){
+  (x - min(x))/ (max(x)-min(x))
+}
 
 #1982-2019 average annual rainfall
 p2$year <- as.numeric(format(p2$date,'%Y')) 
 y <- aggregate(rainfall~year, p2, mean, na.rm=T)
+ref <- y
 x11()
 plot(rainfall~year, data=y[-1,], type="l", ylab="rainfall (mm)", main="1982-2019 average annual rainfall", axes=F, cex.lab=1.2)
 axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
@@ -80,6 +85,7 @@ box()
 #1982-2019 average annual NDVI
 n2$year <- as.numeric(format(n2$date,'%Y')) 
 y <- aggregate(ndvi~year, n2, mean, na.rm=T)
+ref$ndvi <- y$ndvi
 x11()
 plot(ndvi~year, data=y[-1,], type="l", ylab="NDVI", main="1982-2019 average annual NDVI", axes=F, cex.lab=1.2)
 axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
@@ -299,10 +305,12 @@ $$
 where $\overline{H}_{ls}$ is the seasonal *s* (either LRLD or SRSD seasons) beginning herd size averaged per household for each location.
 
 ```{r mortality}
-mort <- mort[mort$type == "TLU", ]
-amort <- aggregate(mort[,c("stock_beginning", "loss"), drop=FALSE], mort[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
+#Consider: Disease, Starvation, Rain, predation
+#mort2 <- mort2[(mort2$cause %in% c("Disease", "Predation","Rain","Starvation/Drought")),]
+mort2 <- mort2[!(mort2$cause %in% c("Just lost", "Old age","Premature birth")),]
+mort2 <- mort2[mort2$type == "TLU", ]
+amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
 amort$mortality_rate <- amort$loss/amort$stock_beginning
-
 
 ```
 
@@ -316,7 +324,6 @@ d <- merge(rain, d, by=c("year", "season", "sublocation"))
 
 ```
 
-
 Explore the relation between mortality and NDVI.
 
 ```{r m3}
@@ -324,11 +331,12 @@ cols <- c("red", "blue")
 seas <- c("SRSD", "LRLD")
 pcols <- cols[match(d$season, seas)]
 x11()
-plot(mortality_rate~zrain, data=d, xlab="rainfall (mm)", ylab="mortality", col=pcols, pch=20)
+par(mfrow=c(2, 1), mar=c(4, 4, 1, 10)) #c(bottom, left, top, right)
+plot(mortality_rate~zrain, data=d, xlab="Z-rainfall (mm)", ylab="mortality", col=pcols, pch=20)
 legend("topright", seas, col=cols, pch=20)
 #NDVI
-x11()
-plot(mortality_rate~zndvi, data=d, xlab="NDVI", ylab="mortality", col=pcols, pch=20)
+#x11()
+plot(mortality_rate~zndvi, data=d, xlab="ZNDVI", ylab="mortality", col=pcols, pch=20)
 legend("topright", seas, col=cols, pch=20)
 
 ```
@@ -337,22 +345,26 @@ The relationship is a bit noisy (as to be expected). There is a lot of variabili
 
 ### Mortality model
 
-Build a local regression model.
+Build a local regression model. Note:  change the surface parameter in loess to "direct" to extrapolate values.
 
 ```{r m4, message=FALSE}
 dd <- na.omit(d[, c("zndvi", "zrain", "mortality_rate")])
+dd$mortality_rate <- dd$mortality_rate * 100
 library(msir)
-m <- loess.sd(dd$zndvi, dd$mortality_rate)
+m <- loess.sd(dd$zndvi, dd$mortality_rate, control=loess.control(surface="direct"))
+
 x11()
-plot(dd$zndvi, dd$mortality_rate, cex=0.5, col="blue", xlab="zNDVI", ylab="Mortality rate", main="NDVI Mortality Model", cex.lab=1.2, cex.axis=1.15)
+par(mfrow=c(1, 2), mar=c(15, 4, 2, 0.5)) #c(bottom, left, top, right)
+#par(mfrow=c(1, 2))
+plot(dd$zndvi, dd$mortality_rate, cex=0.5, col="blue", xlab="zNDVI", ylab="Mortality rate (%)", main="NDVI Mortality Model", cex.lab=1.2, cex.axis=1.15)
 lines(m$x, m$y, col="red")
 lines(m$x, m$upper, lty=2)
 lines(m$x, m$lower, lty=2)
 
 #rainfall
-m <- loess.sd(dd$zrain, dd$mortality_rate)
-x11()
-plot(dd$zrain, dd$mortality_rate, cex=0.5, col="blue", xlab="z-rainfall", ylab="Mortality rate", main="Rainfall Mortality Model", cex.lab=1.2, cex.axis=1.2)
+m <- loess.sd(dd$zrain, dd$mortality_rate, control=loess.control(surface="direct"))
+#x11()
+plot(dd$zrain, dd$mortality_rate, cex=0.5, col="blue", xlab="z-rainfall", ylab="Mortality rate (%)", main="Rainfall Mortality Model", cex.lab=1.2, cex.axis=1.2)
 lines(m$x, m$y, col="red")
 lines(m$x, m$upper, lty=2)
 lines(m$x, m$lower, lty=2)
@@ -363,15 +375,16 @@ Compare predicted with observed mortality rates.
 
 ```{r m5}
 #Rainfall
-m_r <- loess(mortality_rate ~ zrain , data=dd)
+m_r <- loess(mortality_rate ~ zrain , data=dd, control=loess.control(surface="direct"))
 p <- predict(m_r, dd)
-plot(dd$mortality_rate, p, xlab="Observed mortality", ylab="Predicted mortality", main="Rainfall model", pch=16, cex.axis=1.2, cex.lab=1.2, cex=0.7)
+par(mfrow=c(1, 2), mar=c(15, 4, 1.5, 0.5))
+plot(dd$mortality_rate, p, xlab="Observed mortality (%)", ylab="Predicted mortality (%)", main="Rainfall model", pch=16, cex.axis=1.2, cex.lab=1.2, cex=0.7)
 abline(0,1, lwd=2, col="red")
 cat("Rainfall model Residual Standard Error: ", m_r$s, "\n")
 #NDVI
-m_n <- loess(mortality_rate ~ zndvi , data=dd)
+m_n <- loess(mortality_rate ~ zndvi, data=dd, control=loess.control(surface="direct"))
 p <- predict(m_n, dd)
-plot(dd$mortality_rate, p, xlab="Observed mortality", ylab="Predicted mortality", main="NDVI model", pch=16, cex.axis=1.2, cex.lab=1.2, cex=0.7)
+plot(dd$mortality_rate, p, xlab="Observed mortality (%)", ylab="Predicted mortality (%)", main="NDVI model", pch=16, cex.axis=1.2, cex.lab=1.2, cex=0.7)
 abline(0,1, lwd=2, col="red")
 cat("NDVI model Residual Standard Error: ", m_n$s, "\n")
 
@@ -387,20 +400,37 @@ head(df, n=2)
 #Rainfall predicts
 df$rain_mortality <- predict(m_r, df) 
 y <- aggregate(rain_mortality~year, df, mean, na.rm=T)
+temp <- y
 x11()
-plot(rain_mortality* 100~year, data=y, type="l", ylab="Mortality rate (%)", main="Average annual mortality rate using rain data",  axes=FALSE, cex.lab=1.2)
+plot(rain_mortality~year, data=y, type="l", ylab="Mortality rate (%)", main="Average annual mortality rate",  axes=FALSE, cex.lab=1.2, ylim=c(5,40), col="blue")
 axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
-axis(side=2, at=seq(0, 20, 5), cex.axis=1.1)
+axis(side=2, at=seq(0, 40, 5), cex.axis=1.1)
 box()
 
 #NDVI predictions
 df$ndvi_mortality <- predict(m_n, df) 
 y <- aggregate(ndvi_mortality~year, df, mean, na.rm=T)
+temp$ndvi_mortality <- y$ndvi_mortality
+lines(ndvi_mortality[order(year)]~year[order(year)], data=y, col="red")
+legend("topright", c("Rainfall", "NDVI "), lty=1, col=c("blue", "red"), title = "Prediction type", bty = "n")
+text(1984,27,"1984")
+text(1989,36,"1989")
+text(1998, 6,"1998")
+text(2000,32,"2000")
+text(2009,25,"2009")
+text(2011,29,"2011")
+
+```
+
+Now plot rainfall and NDVI average and compare,
+
+```{r m6b}
 x11()
-plot(ndvi_mortality * 100 ~year, data=y, type="l", ylab="Mortality rate (%)", main="Average annual mortality rate using NDVI data",  axes=FALSE, cex.lab=1.2)
-axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
-axis(side=2, at=seq(0, 20, 5), cex.axis=1.1)
-box()
+temp <- t(ref)
+colnames(temp ) <- ref$year
+temp <- temp[-1,-1]
+barplot(temp, las=2, col=c("blue", "green"), ylab=" ", xlab="Year")
+legend("topright",   legend=c("Rainfall (mm)", "NDVI"), fill=c("blue", "green"), bty = "n",cex=1)
 
 ```
 
@@ -431,13 +461,13 @@ Now let analyse plots of our designed contract.
 
 ```{r m9}
 x11()
-plot(ndvi_mortality[order(zndvi)]~zndvi[order(zndvi)], data=df, xlab="zNDVI", ylab="Predicted mortality", pch=16, type="l", lwd=1.2)
+plot(ndvi_mortality[order(zndvi)]~zndvi[order(zndvi)], data=df, xlab="Z-NDVI", ylab="Predicted mortality", pch=16, type="l", lwd=1.2)
 abline(h=n_trig,col="green")
 abline(v=tndvi,col="red")
 text(1,0.3, "False Positive")
 text(-2,0.05, "False Negatives")
 x11()
-plot(rain_mortality[order(zrain)]~zrain[order(zrain)], data=df, xlab="z-rainfall", ylab="Predicted mortality", pch=16, type="l", lwd=1.2)
+plot(rain_mortality[order(zrain)]~zrain[order(zrain)], data=df, xlab="Z-rainfall", ylab="Predicted mortality", pch=16, type="l", lwd=1.2)
 abline(h=r_trig,col="green")
 abline(v=train,col="red")
 ```
@@ -445,8 +475,8 @@ abline(v=train,col="red")
 The payout — in units of monetary value of TLU — can be computed as simply the percentage difference between predicted mortality in TLU and the trigger. Those below the trigger get no payout. We assume that 1 TLU has a monetary equivalence of 1000$.
 
 ```{r m10}
-df$r_pay <- pmax(0, df$rain_mortality - r_trig) * 1000
-df$n_pay <- pmax(0, df$ndvi_mortality - n_trig) * 1000
+df$r_pay <- pmax(0, df$rain_mortality - r_trig)/100 * 1000
+df$n_pay <- pmax(0, df$ndvi_mortality - n_trig)/100 * 1000
 ```
 
 Plots for payouts
@@ -476,7 +506,7 @@ axis(side=2, at=seq(0, round(max(y$n_pay,-1)), by=round(max(y$n_pay)/10,-1) ), c
 box()
 
 x11()
-boxplot(n_pay~year, data=df,cex=.25,main="Average annual payouts based using NDVI data", xlab="Payouts")
+boxplot(n_pay~year, data=df,cex=.3,main="Average annual payouts based using NDVI data", xlab="Payouts")
 
 ```
 
@@ -654,10 +684,10 @@ Create a model that predicts mortality from zNDVI and rainfall with variability 
 
 ```{r s1}
 #NDVI
-m_n <- loess.sd(data$zndvi, data$mortality_rate)
+m_n <- loess.sd(data$zndvi, data$mortality_rate, control=loess.control(surface="direct"))
 fitm_n <- cbind(fit=m_n$model$fitted, sd=m_n$sd)
 #Rainfall
-m_r <- loess.sd(data$zrain, data$mortality_rate)
+m_r <- loess.sd(data$zrain, data$mortality_rate, control=loess.control(surface="direct"))
 fitm_r <- cbind(fit=m_r$model$fitted, sd=m_r$sd)
 ```
 
