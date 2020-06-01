@@ -483,7 +483,7 @@ Plots for payouts
 
 ```{r m11}
 #Rainfall
-y <- aggregate(r_pay~year+season, df, mean, na.rm=T)
+y <- aggregate(r_pay~year, df, mean, na.rm=T)
 y$r_pay <- y$r_pay[order(y$year)]
 y$year <- y$year[order(y$year)]
 x11()
@@ -492,11 +492,8 @@ axis(side=1, at=seq(1982,2019, 2), cex.axis=1.1)
 axis(side=2, at=seq(0, round(max(y$r_pay,-1)), by=round(max(y$r_pay)/10,-1) ), cex.axis=1.1)
 box()
 
-x11()
-boxplot(r_pay~year, data=df,cex=.25,main="Average annual payouts using rain data", xlab="Payouts")
-
 #NDVI
-y <- aggregate(n_pay~year+season, df, mean, na.rm=T)
+y <- aggregate(n_pay~year, df, mean, na.rm=T)
 y$n_pay <- y$n_pay[order(y$year)]
 y$year <- y$year[order(y$year)]
 x11()
@@ -506,7 +503,9 @@ axis(side=2, at=seq(0, round(max(y$n_pay,-1)), by=round(max(y$n_pay)/10,-1) ), c
 box()
 
 x11()
-boxplot(n_pay~year, data=df,cex=.3,main="Average annual payouts based using NDVI data", xlab="Payouts")
+par(mfrow=c(2, 1), mar=c(4.5, 4, 0.5, 0.5)) #c(bottom, left, top, right)
+boxplot(n_pay~year, data=df,cex=.25, ylab="NDVI payouts ($)")
+boxplot(r_pay~year, data=df,cex=.25, ylab="Rainfall payouts ($)")
 
 ```
 
@@ -515,12 +514,14 @@ Let's explore how the payout function behaves.
 ```{r m12}
 #Plot NDVI payout function
 x11()
-plot(n_pay[order(n_pay)]~zndvi[order(n_pay)], data=df, ylab="Payouts (USD)", xlab="zNDVI", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l")
-#abline(v=tndvi, col="red")
+par(mfrow=c(1, 2), mar=c(17, 4, 1, 0.5)) #c(bottom, left, top, right)
+plot(n_pay[order(n_pay)]~zndvi[order(n_pay)], data=df, ylab="Payouts ($)", xlab="Z-NDVI", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l")
+abline(v=tndvi, col="red")
+text(1.0, 400,"Trigger", cex=1.2)
 #Plot rainfall payout function
-x11()
-plot(r_pay[order(r_pay)]~zrain[order(r_pay)], data=df, ylab="Payouts (USD)", xlab="z-rainfall", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l", lwd=1.2)
-#abline(v=train, col="red", lwd=1.2)
+plot(r_pay[order(r_pay)]~zrain[order(r_pay)], data=df, ylab="Payouts ($)", xlab="Z-rainfall", cex.lab=1.2, cex.axis=1.2, pch=16, cex=0.7, type="l", lwd=1.2)
+abline(v=train, col="red", lwd=1.2)
+text(0.1, 140,"Trigger", cex=1.2)
 
 ```
 
