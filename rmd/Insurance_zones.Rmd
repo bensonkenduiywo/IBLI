@@ -1,0 +1,107 @@
+---
+title: "Determination of insurance zones"
+author: "Benson Kenduiywo"
+date: "04/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data preparation
+
+Load libraries
+ 
+```{r lib}
+rm(list = ls(all=TRUE))
+library(agrins)
+library(reshape2)
+```
+Load precipitation and NDVI data.
+
+```{r d1}
+n <- data_ibli("marsabit_avhrr_ndvi") #NOAA
+p <- data_ibli("marsabit_chirps_precipitation")
+names(p)[1:10]
+subloc <- shapefile("./data/marsabit_subloc_ibli.shp")
+
+```
+Reshape the data from wide table to long with year as variable.
+
+```{r d2}
+#http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/
+p2 <- melt(p, variable.name = "date", value.name = "rainfall",id.vars = "SUBLOCATION")
+p2[1,]
+n2 <- melt(n, variable.name = "date", value.name = "ndvi", id.vars = "SUBLOCATION")
+n2[1,]
+
+```
+
+Format the date variable by removing unnecessary variables.
+
+```{r d3}
+#Chirps
+date <- gsub("X", "", p2$date)
+p2$date <- as.Date(as.character(date), format = "%Y%m%d")
+p2[1,]
+#NOAA
+date <- gsub("X", "", n2$date)
+n2$date <- as.Date(as.character(date), format = "%Y%m%d")
+n2[1,]
+
+```
+Compute daily average rainfall and NDVI per season in each year.
+
+```{r d4}
+source("scripts/Functions.R")
+years <- seq(1982, 2019, 1)
+LR_rain <- lapply(years, seasonMean, p2, "long")
+LR_rain <- do.call(rbind, LR_rain)
+names(LR_rain)[2] <- "rainfall"
+SR_rain <- lapply(years, seasonMean, p2, "short")
+SR_rain <- do.call(rbind, SR_rain)
+names(SR_rain)[2] <- "rainfall"
+rain <- rbind(LR_rain, SR_rain)
+#NDVI
+LR_ndvi <- lapply(years, seasonMean, n2, "long")
+LR_ndvi <- do.call(rbind, LR_ndvi)
+names(LR_ndvi)[2] <- "ndvi"
+SR_ndvi <- lapply(years, seasonMean, n2, "short")
+SR_ndvi <- do.call(rbind, SR_ndvi)
+names(SR_ndvi)[2] <- "ndvi"
+ndvi <- rbind(LR_ndvi, SR_ndvi)
+
+```
+
+## Clustering zones
+
+Use kmeans to cluster zones based on NDVI and rainfall per season per year
+
+```{r z1, echo=FALSE}
+
+#Convert long to Wide
+#==================================
+n_w <- dcast(ndvi, SUBLOCATION ~ year+season, value.var="ndvi")
+r_w <- dcast(rain, SUBLOCATION ~ year+season, value.var="rainfall")
+df <- merge(n_w,r_w, by=c("SUBLOCATION"))
+
+set.seed(99)
+#Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method
+r_kmn <- kmeans(df[,-1], centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
+# kmeans returns an object of class "kmeans"
+subloc$Zones <- r_kmn$cluster
+
+```
+Display the old and new zones
+
+```{r z2}
+x11()
+plot(subloc, main= "NDVI+Rain")
+text(subloc, subloc$Zones)
+#Merge to current boundaries
+z_10 <- aggregate(subloc, by="Zones")
+plot(z_10, add = TRUE, border = "red", lwd = 2)
+
+```
+

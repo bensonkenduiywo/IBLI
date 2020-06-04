@@ -35,7 +35,13 @@ names(p)[1:10]
 Reshape the data from wide table to long with year as variable.
 
 ```{r d2}
-p2 <- melt(p, variable.name = "date", value.name = "rainfall", id.vars = "SUBLOCATION")
+#http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/
+p2 <- melt(p,
+    # Name of the destination column that will identify the original column that the measurement came from
+           variable.name = "date", 
+           value.name = "rainfall",
+           # ID variables - all the variables to keep but not split apart on
+           id.vars = "SUBLOCATION")
 p2[1,]
 
 n2 <- melt(n, variable.name = "date", value.name = "ndvi", id.vars = "SUBLOCATION")
@@ -647,8 +653,6 @@ plot(rhos, n_ce$ce_base, type="l", ylab= "CE ($ per TLU)", xlab="CRRA", cex=2)
 lines(rhos, r_ce$ce_ins_nomarkup, col="blue")
 lines(rhos, n_ce$ce_ins_nomarkup, col="green")
 legend("bottomleft", c("No insurance", "NDVI No mark up", "Rainfall No mark up"), lty=1, col=c("black", "green", "blue"), title = "Insurance type", bty = "n")
-
-
 
 ```
 
