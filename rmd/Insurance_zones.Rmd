@@ -17,16 +17,33 @@ Load libraries
 rm(list = ls(all=TRUE))
 library(agrins)
 library(reshape2)
+library(dplyr)
+path <- "D:/UCDavis/QUIIC/github/IBLI/"
+source(paste0(path,"scripts/Functions.R"))
 ```
-Load precipitation and NDVI data.
+Load data.
 
 ```{r d1}
+#NDVI
 n <- data_ibli("marsabit_avhrr_ndvi") #NOAA
+#Precipitation
 p <- data_ibli("marsabit_chirps_precipitation")
 names(p)[1:10]
-subloc <- shapefile("./data/marsabit_subloc_ibli.shp")
-
+#Adim boundary
+subloc <- shapefile(paste0(path,"data/marsabit_subloc_ibli.shp"))
+names(subloc)[6] <- "sublocation"
+#Mortality
+mort <- data_ibli("marsabit_mortality.rds")
+#Causes of mortality data
+cause <- data_ibli("marsabit_losses")[,c("hhid", "sublocation", "cause","month", "year")]
+colnames(cause)[4] <- "season"
+s <- cause$season
+cause$season <- "SRSD"
+cause$season[s >=3 & s <=9] <-"LRLD"
+cause <- na.omit(cause)
+head(cause, n=2)
 ```
+
 Reshape the data from wide table to long with year as variable.
 
 ```{r d2}
@@ -51,10 +68,15 @@ n2$date <- as.Date(as.character(date), format = "%Y%m%d")
 n2[1,]
 
 ```
+Merge causes table with mortality data.
+
+```{r d3a}
+mort2  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+
+```
 Compute daily average rainfall and NDVI per season in each year.
 
 ```{r d4}
-source("scripts/Functions.R")
 years <- seq(1982, 2019, 1)
 LR_rain <- lapply(years, seasonMean, p2, "long")
 LR_rain <- do.call(rbind, LR_rain)
@@ -74,6 +96,38 @@ ndvi <- rbind(LR_ndvi, SR_ndvi)
 
 ```
 
+Compute the zScored daily average rainfall per season per sublocation.
+
+```{r d4a}
+rain <- ungroup(mutate(group_by(rain,SUBLOCATION), 
+                       zrain=zscore(rainfall)))
+
+ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION), 
+                       zndvi=zscore(ndvi)))
+```
+
+Compute mortality.
+
+```{r d5}
+#Consider: Disease, Starvation, Rain, predation
+mort2 <- mort2[!(mort2$cause %in% c("Just lost", "Old age","Premature birth")),]
+mort2 <- mort2[mort2$type == "TLU", ]
+mort2 <- na.omit(mort2)
+amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
+amort$mortality_rate <- amort$loss/amort$stock_beginning
+
+```
+
+Merge mortality with NDVI and rainfall data.
+
+```{r d6}
+colnames(ndvi)[1] <- "sublocation"
+d <- merge(ndvi, amort, by=c("year", "season", "sublocation"))
+colnames(rain)[1] <- "sublocation"
+d <- merge(rain, d, by=c("year", "season", "sublocation"))
+d$mortality_rate <- d$mortality_rate * 100
+```
+
 ## Clustering zones
 
 Use kmeans to cluster zones based on NDVI and rainfall per season per year
@@ -82,9 +136,9 @@ Use kmeans to cluster zones based on NDVI and rainfall per season per year
 
 #Convert long to Wide
 #==================================
-n_w <- dcast(ndvi, SUBLOCATION ~ year+season, value.var="ndvi")
-r_w <- dcast(rain, SUBLOCATION ~ year+season, value.var="rainfall")
-df <- merge(n_w,r_w, by=c("SUBLOCATION"))
+n_w <- dcast(ndvi, sublocation ~ year+season, value.var="ndvi")
+r_w <- dcast(rain, sublocation ~ year+season, value.var="rainfall")
+df <- merge(n_w,r_w, by=c("sublocation"))
 
 set.seed(99)
 #Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method
@@ -102,6 +156,64 @@ text(subloc, subloc$Zones)
 #Merge to current boundaries
 z_10 <- aggregate(subloc, by="Zones")
 plot(z_10, add = TRUE, border = "red", lwd = 2)
+
+```
+
+## Effect of zones on mortality predictions
+
+We will determine zones between 4--10 and evaluate the effect of the zones on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and RMSE
+
+```{r e1}
+zones <- c(4:10)
+#par(mfrow=c(4, 2), mar=c(.1, .1, .1, .1)) #c(bottom, left, top, right)
+r_n <- c()
+e_n <- c()
+r_r <- c()
+e_r <- c()
+for(z in 1:length(zones)){
+  set.seed(99)
+  r_kmn <- kmeans(df[,-1], centers = zones[z], iter.max = 500, nstart = 4, algorithm="Lloyd")
+  # kmeans returns an object of class "kmeans"
+  subloc$Zones <- r_kmn$cluster
+  df2 <- 0
+  df2 <- merge(d,subloc[,-c(1:5,7:12)], by="sublocation")
+  df2 <- aggregate(df2[,c("mortality_rate", "zndvi","zrain"), drop=FALSE], df2[, c("season","year","Zones"), drop=FALSE], mean, na.rm=TRUE)
+ 
+  #Rainfall
+  m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
+  p <- predict(m_r, df2)
+  cat(zones[z], " zones: Rain model R2: ", R_square(df2$mortality_rate, p), "\n")
+  r_r[z] <- R_square(df2$mortality_rate, p)
+  e_r[z] <- rmse(df2$mortality_rate - p)
+  #NDVI
+  m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
+  p <- predict(m_n, df2)
+  cat(zones[z], " zones: NDVI model R2: ", R_square(df2$mortality_rate, p), "\n")
+  r_n[z] <- R_square(df2$mortality_rate, p)
+  e_n[z] <- rmse(df2$mortality_rate - p)
+}
+
+
+```
+
+Plot the influence of zone size on R$^2$ and RMSE of the mortality model.
+
+```{r e2}
+windows()
+par(mfrow=c(1,2),mar=c(13,4.5,1,1))
+plot(zones, r_n, type="l", ylim= c(0,1), col="red", ylab="RMSE (tons/ha)", xlab= "n-fold", cex.axis =1.2, cex.lab = 1.2)
+lines(iterations, rf_a, col="blue")
+legend("topright", c("SVM", "RF"), col=c("red","blue"), lty = 1)
+
+plot(iterations, svm_b, type="l", ylim= c(0,100), col="red", ylab="MAPE (%)", xlab= "n-fold", cex.axis =1.2, cex.lab = 1.2)
+lines(iterations, rf_b, col="blue")
+legend("topright", c("SVM", "RF"), col=c("red","blue"), lty = 1)
+
+windows()
+par(mar=c(4.5,4.5,1,1))
+plot(iterations, r_svm, type="l", ylim= c(0,1), col="red", ylab=expression(R^2), xlab= "n-fold", cex.axis =1.2, cex.lab = 1.2)
+lines(iterations, r_rf, col="blue")
+legend("topright", c("SVM", "RF"), col=c("red","blue"), lty = 1)
 
 ```
 

@@ -194,7 +194,6 @@ Now we need household mortality data in order to build a model. Get mortality da
 
 ```{r d8}
 mort <- data_ibli("marsabit_mortality.rds")
-
 ```
 
 Load data with causes of mortality.

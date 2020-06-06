@@ -17,3 +17,22 @@ seasonMean <- function(year, df, season){
   ym$season <- season
   return(ym)
 }
+
+rmse <- function(error){
+  return(sqrt(mean(error^2)))
+}
+
+
+MAPE <- function (y_pred, y_true){
+  MAPE <- mean(abs((y_true - y_pred)/y_true))
+  return(MAPE*100)
+}
+
+R_square <- function(actual, predicted) {
+  val <- 1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))
+  return(val)
+} 
+
+zscore <- function(y){
+  (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
+}
