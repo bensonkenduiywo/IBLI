@@ -577,7 +577,6 @@ Compute pastarolist capital as the percentage of TLU remaining after losses. NB:
 data$capital <- (1 - data$mortality_rate) * 1000
 ```
 
-
 Let us assess the welfare of index insurance to the pastoralists. So get the CE function.
 
 ```{r e3}
@@ -661,7 +660,7 @@ Let do the *MQS test* using the same values of CRRA and make a plot to determine
 
 ```{r e7}
 test <- function(rhos, df1){
-  ce_base <- ce_ins <- mqs <- mqs_no <- rep(NA, length(rhos))
+  ce_base <- ce_ins <- ce_ins_nomarkup<- mqs <- mqs_no <- rep(NA, length(rhos))
     for(i in 1:length(rhos)){
       ce_base[i] <- ce_income(df1$y_noins, rhos[i])
       ce_ins[i]  <- ce_income(df1$y_25markup, rhos[i])

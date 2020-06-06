@@ -36,3 +36,15 @@ R_square <- function(actual, predicted) {
 zscore <- function(y){
   (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
 }
+
+test <- function(rhos, df1){
+  ce_base <- ce_ins <- ce_ins_nomarkup<- mqs <- mqs_no <- rep(NA, length(rhos))
+  for(i in 1:length(rhos)){
+    ce_base[i] <- ce_income(df1$y_noins, rhos[i])
+    ce_ins[i]  <- ce_income(df1$y_25markup, rhos[i])
+    ce_ins_nomarkup[i] <- ce_income(df1$y_nomarkup, rhos[i])
+    mqs[i]    <- ce_ins[i] - ce_base[i]
+    mqs_no[i] <- ce_ins_nomarkup[i] - ce_base[i]
+  }
+  return(list(mqs=mqs,mqs_no=mqs_no))
+}
