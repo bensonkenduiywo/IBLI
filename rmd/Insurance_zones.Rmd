@@ -128,23 +128,46 @@ d <- merge(rain, d, by=c("year", "season", "sublocation"))
 d$mortality_rate <- d$mortality_rate * 100
 ```
 
+## Spatial Variation of mortality
+
+Display the spatial variation on mortality.
+
+```{r sv1}
+temp <- aggregate(amort[, "mortality_rate", drop=FALSE], amort[, c("season", "sublocation"), drop=FALSE],mean, na.rm=T)
+#LRLD
+lr <- merge(subloc, temp[temp$season=="LRLD", c("mortality_rate", "sublocation")], by= "sublocation")
+#SRSD
+sr <- merge(subloc, temp[temp$season=="SRSD", c("mortality_rate", "sublocation")], by= "sublocation")
+
+cols <- heat.colors(length(lr$sublocation), rev=T)
+#Rainfal spatial variation
+x11()
+par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
+spplot(lr, "mortality_rate", col.regions=cols, main="LRLD Average observed mortality per Sub-location: 2008-2015")
+spplot(sr, "mortality_rate", col.regions=cols, main="SRSD Average observed mortality per Sub-location: 2008-2015")
+
+```
+
 ## Clustering zones
 
 Use kmeans to cluster zones based on NDVI and rainfall per season per year
 
-```{r z1, echo=FALSE}
+```{r z1}
 
 #Convert long to Wide
 #==================================
 n_w <- dcast(ndvi, sublocation ~ year+season, value.var="ndvi")
 r_w <- dcast(rain, sublocation ~ year+season, value.var="rainfall")
 df <- merge(n_w,r_w, by=c("sublocation"))
-
+subs <- sort(unique(d$sublocation))
+aoi <- subloc[subloc$sublocation %in% subs,]
+df1 <- df[df$sublocation %in% subs,]
 set.seed(99)
-#Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method
-r_kmn <- kmeans(df[,-1], centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
+#rf <-  randomForest(df[,-1],ntree=200,importance = TRUE)
+#Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method 
+r_kmn <- kmeans(df1[,-1], centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
 # kmeans returns an object of class "kmeans"
-subloc$Zones <- r_kmn$cluster
+aoi$Zones <- r_kmn$cluster
 
 ```
 Display the old and new zones
@@ -152,9 +175,9 @@ Display the old and new zones
 ```{r z2}
 x11()
 plot(subloc, main= "NDVI+Rain")
-text(subloc, subloc$Zones)
+text(aoi, aoi$Zones, cex=.8)
 #Merge to current boundaries
-z_10 <- aggregate(subloc, by="Zones")
+z_10 <- aggregate(aoi, by="Zones")
 plot(z_10, add = TRUE, border = "red", lwd = 2)
 
 ```
@@ -165,37 +188,37 @@ We will determine zones between 4--10 and evaluate the effect of the zones on mo
  3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
 
 ```{r e1}
-zones <- seq(2,56,2) #c(4:10)
+zones <- seq(2,15,1) #c(4:10)
 r_n <- c()
 e_n <- c()
 r_r <- c()
 e_r <- c()
 mape_n <- c()
 mape_r <- c()
+#Construct a Global mortality model based on NDVI & rainfall
+m_r <- loess(mortality_rate ~ zrain , data=d, control=loess.control(surface="direct"))
+m_n <- loess(mortality_rate ~ zndvi, data=d, control=loess.control(surface="direct"))
+
 for(z in 1:length(zones)){
   set.seed(99)
-  r_kmn <- kmeans(df[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
-  # kmeans returns an object of class "kmeans"
-  subloc$Zones <- r_kmn$cluster
+  r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
+  aoi$Zones <- r_kmn$cluster
   df2 <- 0
-  df2 <- merge(d,subloc[,-c(1:5,7:12)], by="sublocation")
-  df2 <- aggregate(df2[,c("mortality_rate", "zndvi","zrain"), drop=FALSE], df2[, c("season","year","Zones"), drop=FALSE], mean, na.rm=TRUE)
- 
+  df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
+                       zrain=mean(zrain), zndvi=mean(zndvi)))
   #Rainfall
-  m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   p <- predict(m_r, df2)
   r_r[z] <- R_square(df2$mortality_rate, p)
   e_r[z] <- rmse(df2$mortality_rate - p)
   mape_r[z] <- MAPE(df2$mortality_rate, p)
   #NDVI
-  m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   p <- predict(m_n, df2)
   r_n[z] <- R_square(df2$mortality_rate, p)
   e_n[z] <- rmse(df2$mortality_rate - p)
   mape_n[z] <- MAPE(df2$mortality_rate, p)
 }
-
-quality <- data.frame(Zone=zones,ndvi_R2=r_n,rain_R2=r_r, ndvi_RMSE=e_n,rain_RMSE=e_r,ndvi_mape=mape_n,rain_mape=mape_r)
+quality <- data.frame(No_Zone=zones,ndvi_R2=r_n,rain_R2=r_r, ndvi_RMSE=e_n,rain_RMSE=e_r,ndvi_mape=mape_n,rain_mape=mape_r)
 quality
 
 ```
@@ -226,17 +249,16 @@ rhos <- 1.5 #seq(0, 5, .1)
 mqs_n <- mqs_r <- vector("list", length(rhos))
 for(z in 1:length(zones)){
   set.seed(99)
-  r_kmn <- kmeans(df[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
-  subloc$Zones <- r_kmn$cluster
+  r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
+  aoi$Zones <- r_kmn$cluster
   df2 <- 0
-  df2 <- merge(d, subloc[,-c(1:5,7:12)], by="sublocation")
-  df2 <- aggregate(df2[,c("mortality_rate", "zndvi","zrain"), drop=FALSE], df2[, c("season","year","Zones"), drop=FALSE], mean, na.rm=TRUE)
+  df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
+                       zrain=mean(zrain), zndvi=mean(zndvi)))
   #1.0 Mortality model
   #Rainfall
-  m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   df2$rain_mortality <- predict(m_r, df2)
   #NDVI
-  m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   df2$ndvi_mortality <- predict(m_n, df2)
   #2.0 Contract design
   r_trig <- quantile(df2$rain_mortality, 0.80, na.rm=T)
@@ -270,7 +292,66 @@ We have made a welfare test on the various zones we have created. Let us now mak
 a <-  matrix(unlist(mqs_n),ncol=2,byrow=TRUE)
 b <-  matrix(unlist(mqs_r),ncol=2,byrow=TRUE)
 x11()
-plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Sub-location clusters", cex=2, ylim=c(0, 30))
+plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Sub-location clusters", cex=2, ylim=c(0, 30), main=expression(paste(rho," = 1.5")))
+lines(zones, a[,2], col="green")
+lines(zones, b[,2], col="magenta")
+lines(zones, b[,1], col="blue")
+legend("topright", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
+
+```
+
+Consider a highly risk averse farmer $\rho=5$
+
+```{r mqs3}
+markup <- 0.25
+rhos <- 5 #seq(0, 5, .1)
+mqs_n <- mqs_r <- vector("list", length(rhos))
+for(z in 1:length(zones)){
+  set.seed(99)
+  r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
+  aoi$Zones <- r_kmn$cluster
+  df2 <- 0
+  df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
+  
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
+                       zrain=mean(zrain), zndvi=mean(zndvi)))
+  #1.0 Mortality model
+  #Rainfall
+  df2$rain_mortality <- predict(m_r, df2)
+  #NDVI
+  df2$ndvi_mortality <- predict(m_n, df2)
+  #2.0 Contract design
+  r_trig <- quantile(df2$rain_mortality, 0.80, na.rm=T)
+  n_trig <- quantile(df2$ndvi_mortality, 0.80, na.rm=T)
+  #make payouts; 1 TLU=100$
+  df2$r_pay <- pmax(0, df2$rain_mortality - r_trig)/100 * 1000
+  df2$n_pay <- pmax(0, df2$ndvi_mortality - n_trig)/100 * 1000
+  #3.0 Evaluation
+  #NDVI
+  df2$capital <- (100 - df2$mortality_rate) * 1000
+  n_premium <- mean(df2$n_pay) * (1 + markup)
+  df_n <- data.frame(y_noins = df2$capital) # no insurance
+  df_n$y_nomarkup <- (df2$capital + df2$n_pay) - mean(df2$n_pay) #no markup
+  df_n$y_25markup <- (df2$capital + df2$n_pay) - n_premium #marked up
+  #Rainfall model premiums
+  r_premium <- mean(df2$r_pay) * (1 + markup)
+  df_r <- data.frame(y_noins = df2$capital)
+  df_r$y_nomarkup <- (df2$capital + df2$r_pay) - mean(df2$r_pay)
+  df_r$y_25markup <- (df2$capital + df2$r_pay) - r_premium
+  #4.0 MQS test
+  mqs_n[[z]] <- test(rhos, df_n)
+  mqs_r[[z]] <- test(rhos, df_r)
+
+}
+
+```
+Make a plot to evaluate if the size of the zone clusters influence insurance welfare in any way.
+
+```{r mqs4}
+a <-  matrix(unlist(mqs_n),ncol=2,byrow=TRUE)
+b <-  matrix(unlist(mqs_r),ncol=2,byrow=TRUE)
+x11()
+plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Sub-location clusters", cex=2, ylim=c(0, 300), main=expression(paste(rho," = 5")))
 lines(zones, a[,2], col="green")
 lines(zones, b[,2], col="magenta")
 lines(zones, b[,1], col="blue")
