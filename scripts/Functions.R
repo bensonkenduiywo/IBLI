@@ -1,5 +1,6 @@
 #Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
 seasonMean <- function(year, df, season){
+	df$date <- as.Date(df$date, format = "X%Y%m%d")
   if(season =="long"){
     sdate <- paste0(year, "-03-01")
     edate <- paste0(year, "-09-30")
@@ -17,6 +18,8 @@ seasonMean <- function(year, df, season){
   ym$season <- season
   return(ym)
 }
+
+
 
 rmse <- function(error){
   return(sqrt(mean(error^2)))

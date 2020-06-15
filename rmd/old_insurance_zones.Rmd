@@ -3,142 +3,127 @@ title: "Determination of insurance zones"
 author: "Benson Kenduiywo"
 date: "04/06/2020"
 output: html_document
-editor_options: 
-  chunk_output_type: console
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## Data preparation
 
-Load packages (from the library)
+Load libraries
  
-```{r lib, message=FALSE}
+```{r lib}
+rm(list = ls(all=TRUE))
+library(agrins)
 library(reshape2)
 library(dplyr)
-library(agrodata)
-#path <- "D:/UCDavis/QUIIC/github/IBLI/"
-#source(paste0(path,"scripts/Functions.R"))
-#source("../scripts/Functions.R")
+path <- "D:/UCDavis/QUIIC/github/IBLI/"
+source(paste0(path,"scripts/Functions.R"))
 ```
-
-Sublocation boundaries
-
-```{r d12}
-#subloc <- shapefile(paste0(path,"data/marsabit_subloc_ibli.shp"))
-subloc <- agrodata::data_ibli("marsabit")
-names(subloc)[6] <- "sublocation"
-subloc
-```
-
-### NDVI and rainfall data.
+Load data.
 
 ```{r d1}
-#library(agrins)
-#library(agrodata)
-n <- agrodata::data_ibli("marsabit_avhrr_ndvi") #NOAA
-colnames(n)[1:5]
-p <- agrodata::data_ibli("marsabit_chirps_precipitation")
-colnames(p)[1:5]
+#NDVI
+n <- data_ibli("marsabit_avhrr_ndvi") #NOAA
+#Precipitation
+p <- data_ibli("marsabit_chirps_precipitation")
+names(p)[1:10]
+#Adim boundary
+subloc <- shapefile(paste0(path,"data/marsabit_subloc_ibli.shp"))
+names(subloc)[6] <- "sublocation"
+#Mortality
+mort <- data_ibli("marsabit_mortality.rds")
+#Causes of mortality data
+cause <- data_ibli("marsabit_losses")[,c("hhid", "sublocation", "cause","month", "year")]
+colnames(cause)[4] <- "season"
+s <- cause$season
+cause$season <- "SRSD"
+cause$season[s >=3 & s <=9] <-"LRLD"
+cause <- na.omit(cause)
+head(cause, n=2)
 ```
 
-
-Reshape the data from wide to long with date as a variable.
+Reshape the data from wide table to long with year as variable.
 
 ```{r d2}
-p <- reshape2::melt(p, variable.name = "date", value.name = "rain",id.vars = "SUBLOCATION")
-colnames(p) <- tolower(colnames(p))
-p[1,]
-
-# equivalent to
-#p2 <- data.frame(p[,1,drop=FALSE], 
-#                 date=rep(colnames(p)[-1], each=nrow(p)), 
-#                 rain=as.vector(as.matrix(p[,2:ncol(p)])))
-# and to
-#cn <- colnames(p)[2:ncol(p)]
-#p2 = reshape(p, direction="long", idvar="SUBLOCATION", timevar="date", varying=cn, times=cn, v.names="rainfall", new.row.names=1:(nrow(p)*(ncol(p)-1)))
-
-n <- reshape2::melt(n, variable.name = "date", value.name = "ndvi", id.vars = "SUBLOCATION")
-colnames(n) <- tolower(colnames(n))
-n[1,]
+#http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/
+p2 <- melt(p, variable.name = "date", value.name = "rainfall",id.vars = "SUBLOCATION")
+p2[1,]
+n2 <- melt(n, variable.name = "date", value.name = "ndvi", id.vars = "SUBLOCATION")
+n2[1,]
 
 ```
 
-Compute seasonal mean rainfall and NDVI for each year.
+Format the date variable by removing unnecessary variables.
+
+```{r d3}
+#Chirps
+date <- gsub("X", "", p2$date)
+p2$date <- as.Date(as.character(date), format = "%Y%m%d")
+p2[1,]
+#NOAA
+date <- gsub("X", "", n2$date)
+n2$date <- as.Date(as.character(date), format = "%Y%m%d")
+n2[1,]
+
+```
+Merge causes table with mortality data.
+
+```{r d3a}
+mort2  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+
+```
+Compute daily average rainfall and NDVI per season in each year.
 
 ```{r d4}
-season_mean <- function(d, v){
-	d$month <- as.integer(substr(d$date, 6, 7))
-	d$year <- as.integer(substr(d$date, 2, 5))
-	d$season <- ifelse(d$month>2 & d$month<10, "LRLD", "SRSD")
-	aggregate(d[,v,drop=FALSE], d[,c("sublocation", "year", "season")], mean, na.rm=TRUE)
-}
+years <- seq(1982, 2019, 1)
+LR_rain <- lapply(years, seasonMean, p2, "long")
+LR_rain <- do.call(rbind, LR_rain)
+names(LR_rain)[2] <- "rainfall"
+SR_rain <- lapply(years, seasonMean, p2, "short")
+SR_rain <- do.call(rbind, SR_rain)
+names(SR_rain)[2] <- "rainfall"
+rain <- rbind(LR_rain, SR_rain)
+#NDVI
+LR_ndvi <- lapply(years, seasonMean, n2, "long")
+LR_ndvi <- do.call(rbind, LR_ndvi)
+names(LR_ndvi)[2] <- "ndvi"
+SR_ndvi <- lapply(years, seasonMean, n2, "short")
+SR_ndvi <- do.call(rbind, SR_ndvi)
+names(SR_ndvi)[2] <- "ndvi"
+ndvi <- rbind(LR_ndvi, SR_ndvi)
 
-p <- season_mean(p, "rain")
-p <- p[p$year > 1981, ]
-
-n <- season_mean(n, "ndvi")
-n <- n[n$year > 1981, ]
 ```
 
 Compute the zScored daily average rainfall per season per sublocation.
 
-I do not uderstand a thing the below, but the results seem wrong 
 ```{r d4a}
-zscore <- function(y){ (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))}
-xrain <- dplyr::ungroup(dplyr::mutate(dplyr::group_by(p, sublocation), zrain=zscore(rain)))
-xndvi <- dplyr::ungroup(dplyr::mutate(dplyr::group_by(n, sublocation), zndvi=zscore(ndvi)))
+rain <- ungroup(mutate(group_by(rain,SUBLOCATION), 
+                       zrain=zscore(rainfall)))
+
+ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION), 
+                       zndvi=zscore(ndvi)))
 ```
 
-At least they are different from a conventional computation. 
-
-```{r d4b}
-z_score <- function(d, v){
-  a <- aggregate(d[,v], d[,c("sublocation", "season")], function(i) cbind(mean(i, na.rm=TRUE), sd(i, na.rm=TRUE)))
-  a <- do.call(data.frame, a)
-  colnames(a)[3:4] <- c("mean", "sd")
-  d <- merge(d, a)
-  d[, paste0("z", v)] <- (d[,v] - d$mean) / d$sd
-  #d$mean <- NULL
-  #d$sd <- NULL
-  d[order(d$year, d$season, d$sublocation), ]
-}
-
-rain <- z_score(p, "rain")
-ndvi <- z_score(n, "ndvi")
-
-head(rain)
-head(xrain)
-
-```
-
-
-### Livestock data
-
-Mortality and causes of mortality data
-
-```{r d13}
-mort <- agrodata::data_ibli("marsabit_mortality.rds")
-cause <- agrodata::data_ibli("marsabit_losses")[,c("hhid", "sublocation", "cause","month", "year")]
-cause$season <- "SRSD"
-cause$season[cause$month >=3 & cause$month <=9] <-"LRLD"
-head(cause, n=2)
-mort<- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
-```
-
-Compute mortality
+Compute mortality.
 
 ```{r d5}
 #Consider: Disease, Starvation, Rain, predation
-mort <- mort[!(mort$cause %in% c("Just lost", "Old age","Premature birth")),]
-mort <- mort[mort$type == "TLU", ]
-amort <- aggregate(mort[,c("stock_beginning", "loss"), drop=FALSE], mort[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
+mort2 <- mort2[!(mort2$cause %in% c("Just lost", "Old age","Premature birth")),]
+mort2 <- mort2[mort2$type == "TLU", ]
+mort2 <- na.omit(mort2)
+amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
+amort$mortality_rate <- amort$loss/amort$stock_beginning
 
-amort$mortality_rate <- amort$loss / amort$stock_beginning
 ```
 
-### Merge mortality with NDVI and rainfall data.
+Merge mortality with NDVI and rainfall data.
 
 ```{r d6}
+colnames(ndvi)[1] <- "sublocation"
 d <- merge(ndvi, amort, by=c("year", "season", "sublocation"))
+colnames(rain)[1] <- "sublocation"
 d <- merge(rain, d, by=c("year", "season", "sublocation"))
 d$mortality_rate <- d$mortality_rate * 100
 ```
@@ -147,21 +132,20 @@ d$mortality_rate <- d$mortality_rate * 100
 
 Display the spatial variation on mortality.
 
-STOP! for merge to work you need terra >= 0.6-15
-
 ```{r sv1}
 temp <- aggregate(amort[, "mortality_rate", drop=FALSE], amort[, c("season", "sublocation"), drop=FALSE],mean, na.rm=T)
 #LRLD
-lr <- terra::merge(subloc, temp[temp$season=="LRLD", c("sublocation", "mortality_rate")], by= "sublocation")
+lr <- merge(subloc, temp[temp$season=="LRLD", c("mortality_rate", "sublocation")], by= "sublocation")
 #SRSD
-sr <- terra::merge(subloc, temp[temp$season=="SRSD", c("sublocation", "mortality_rate")], by= "sublocation")
+sr <- merge(subloc, temp[temp$season=="SRSD", c("mortality_rate", "sublocation")], by= "sublocation")
 
 cols <- heat.colors(length(lr$sublocation), rev=T)
 #Rainfal spatial variation
-#x11()
+x11()
 par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
-raster::spplot(lr, "mortality_rate", col.regions=cols, main="LRLD mean mortality")
-raster::spplot(sr, "mortality_rate", col.regions=cols, main="SRSD mean mortality")
+spplot(lr, "mortality_rate", col.regions=cols, main="LRLD Average observed mortality per Sub-location: 2008-2015")
+spplot(sr, "mortality_rate", col.regions=cols, main="SRSD Average observed mortality per Sub-location: 2008-2015")
+
 ```
 
 ## Clustering zones
@@ -169,31 +153,32 @@ raster::spplot(sr, "mortality_rate", col.regions=cols, main="SRSD mean mortality
 Use kmeans to cluster zones based on NDVI and rainfall per season per year
 
 ```{r z1}
+
 #Convert long to Wide
-n_w <- reshape2::dcast(ndvi, sublocation ~ year+season, value.var="ndvi")
-r_w <- reshape2::dcast(rain, sublocation ~ year+season, value.var="rain")
-df <- merge(n_w, r_w, by=c("sublocation"))
-#subs <- sort(unique(rain$sublocation))
-#aoi <- subloc[subloc$sublocation %in% subs,]
-#df1 <- df[df$sublocation %in% subs,]
+#==================================
+n_w <- dcast(ndvi, sublocation ~ year+season, value.var="ndvi")
+r_w <- dcast(rain, sublocation ~ year+season, value.var="rainfall")
+df <- merge(n_w,r_w, by=c("sublocation"))
+subs <- sort(unique(d$sublocation))
+aoi <- subloc[subloc$sublocation %in% subs,]
+df1 <- df[df$sublocation %in% subs,]
 set.seed(99)
 #rf <-  randomForest(df[,-1],ntree=200,importance = TRUE)
 #Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method 
-r_kmn <- kmeans(df[,-1], centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
+r_kmn <- kmeans(df1[,-1], centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
 # kmeans returns an object of class "kmeans"
-subloc$zone <- r_kmn$cluster
+aoi$Zones <- r_kmn$cluster
 
 ```
-
 Display the old and new zones
 
 ```{r z2}
-#x11()
-terra::plot(subloc, "zone")
-#text(subloc, subloc$zone, cex=.8)
+x11()
+plot(subloc, main= "NDVI+Rain")
+text(aoi, aoi$Zones, cex=.8)
 #Merge to current boundaries
-z_10 <- aggregate(subloc, by="zone")
-lines(z_10, col="red", lwd = 2)
+z_10 <- aggregate(aoi, by="Zones")
+plot(z_10, add = TRUE, border = "red", lwd = 2)
 
 ```
 
@@ -203,26 +188,24 @@ We will determine zones between 4--10 and evaluate the effect of the zones on mo
  3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
 
 ```{r e1}
-rmse <- function(error){ return(sqrt(mean(error^2)))}
-MAPE <- function (y_pred, y_true){ mean(abs((y_true - y_pred)/y_true)) * 100 }
-R_square <- function(actual, predicted) { 1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))} 
-
-d <- d[!is.na(d$mortality_rate), ]
-zones <- 2:15 #c(4:10)
-r_n <- e_n <- r_r <- e_r <- mape_n <- mape_r <- NULL
+zones <- seq(2,15,1) #c(4:10)
+r_n <- c()
+e_n <- c()
+r_r <- c()
+e_r <- c()
+mape_n <- c()
+mape_r <- c()
 #Construct a Global mortality model based on NDVI & rainfall
 m_r <- loess(mortality_rate ~ zrain , data=d, control=loess.control(surface="direct"))
 m_n <- loess(mortality_rate ~ zndvi, data=d, control=loess.control(surface="direct"))
 
-df1 <- df
-
 for(z in 1:length(zones)){
   set.seed(99)
   r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
-  subloc$zone <- r_kmn$cluster
-  #df2 <- 0
-  df2 <- merge(d, as.data.frame(subloc[,c("sublocation", "zone")]), by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year, zone), 
+  aoi$Zones <- r_kmn$cluster
+  df2 <- 0
+  df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
                        zrain=mean(zrain), zndvi=mean(zndvi)))
   #Rainfall
   p <- predict(m_r, df2)
@@ -235,8 +218,7 @@ for(z in 1:length(zones)){
   e_n[z] <- rmse(df2$mortality_rate - p)
   mape_n[z] <- MAPE(df2$mortality_rate, p)
 }
-
-quality <- data.frame(No_Zone=zones, ndvi_R2=r_n, rain_R2=r_r, ndvi_RMSE=e_n,rain_RMSE=e_r,ndvi_mape=mape_n,rain_mape=mape_r)
+quality <- data.frame(No_Zone=zones,ndvi_R2=r_n,rain_R2=r_r, ndvi_RMSE=e_n,rain_RMSE=e_r,ndvi_mape=mape_n,rain_mape=mape_r)
 quality
 
 ```
@@ -244,7 +226,7 @@ quality
 Plot the influence of zone size on R$^2$ and RMSE of the mortality model.
 
 ```{r e2}
-#windows()
+windows()
 #par(mfrow=c(1,2),mar=c(15,4.5,1,1))
 par(mfrow=c(1, 2), mar=c(15, 4.5, 2, 0.5)) #c(bottom, left, top, right)
 plot(zones, r_n, type="l", ylim= c(0,1), col="green", ylab=expression(R^2), xlab= "Sub-location clusters", cex.axis =1.2, cex.lab = 1.2, lwd=2)
@@ -262,31 +244,16 @@ legend("topright", c("NDVI", "Rainfall"), col=c("green","blue"), lty = 1, lwd=2)
 We evaluate the influence of zone clusters on insurance welfare using MQS based on a risk aversion coefficient $\rho=1.5$ -- which falls within the common range for risk-averse farming communities.
 
 ```{r mqs1}
-library(agro)
-test <- function(rhos, df1){
-  ce_base <- ce_ins <- ce_ins_nomarkup<- mqs <- mqs_no <- rep(NA, length(rhos))
-  for(i in 1:length(rhos)){
-    ce_base[i] <- ce_income(df1$y_noins, rhos[i])
-    ce_ins[i]  <- ce_income(df1$y_25markup, rhos[i])
-    ce_ins_nomarkup[i] <- ce_income(df1$y_nomarkup, rhos[i])
-    mqs[i]    <- ce_ins[i] - ce_base[i]
-    mqs_no[i] <- ce_ins_nomarkup[i] - ce_base[i]
-  }
-  return(list(mqs=mqs,mqs_no=mqs_no))
-}
-
-
-
 markup <- 0.25
 rhos <- 1.5 #seq(0, 5, .1)
 mqs_n <- mqs_r <- vector("list", length(rhos))
 for(z in 1:length(zones)){
   set.seed(99)
   r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
-  subloc$zone <- r_kmn$cluster
+  aoi$Zones <- r_kmn$cluster
   df2 <- 0
-  df2 <- merge(d, as.data.frame(subloc[,c("sublocation", "zone")]), by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year, zone), 
+  df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
                        zrain=mean(zrain), zndvi=mean(zndvi)))
   #1.0 Mortality model
   #Rainfall
@@ -324,7 +291,7 @@ We have made a welfare test on the various zones we have created. Let us now mak
 ```{r mqs2}
 a <-  matrix(unlist(mqs_n),ncol=2,byrow=TRUE)
 b <-  matrix(unlist(mqs_r),ncol=2,byrow=TRUE)
-#x11()
+x11()
 plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Sub-location clusters", cex=2, ylim=c(0, 30), main=expression(paste(rho," = 1.5")))
 lines(zones, a[,2], col="green")
 lines(zones, b[,2], col="magenta")
@@ -342,10 +309,11 @@ mqs_n <- mqs_r <- vector("list", length(rhos))
 for(z in 1:length(zones)){
   set.seed(99)
   r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
-  subloc$zone <- r_kmn$cluster
-  df2 <- merge(d, as.data.frame(subloc[,c("sublocation", "zone")]), by="sublocation")
+  aoi$Zones <- r_kmn$cluster
+  df2 <- 0
+  df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
   
-  df2 <- ungroup(mutate(group_by(df2, season, year, zone), 
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
                        zrain=mean(zrain), zndvi=mean(zndvi)))
   #1.0 Mortality model
   #Rainfall
@@ -377,12 +345,12 @@ for(z in 1:length(zones)){
 }
 
 ```
-
 Make a plot to evaluate if the size of the zone clusters influence insurance welfare in any way.
 
 ```{r mqs4}
 a <-  matrix(unlist(mqs_n),ncol=2,byrow=TRUE)
 b <-  matrix(unlist(mqs_r),ncol=2,byrow=TRUE)
+x11()
 plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Sub-location clusters", cex=2, ylim=c(0, 300), main=expression(paste(rho," = 5")))
 lines(zones, a[,2], col="green")
 lines(zones, b[,2], col="magenta")
@@ -394,4 +362,6 @@ legend("topright", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark 
 
 ## References
 
-Lewis, C. D., 1982. *Industrial and business forecasting methods: a practical guide to exponential smoothing and curve fitting*. Butterworth Scientific, London Boston.
+Lewis, C. D., 1982. *Industrial and business forecasting methods:
+a practical guide to exponential smoothing and curve fitting*.
+Butterworth Scientific, London Boston.
