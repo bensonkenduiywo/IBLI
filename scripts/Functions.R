@@ -27,13 +27,11 @@ rmse <- function(error){
 
 
 MAPE <- function (y_pred, y_true){
-  MAPE <- mean(abs((y_true - y_pred)/y_true))
-  return(MAPE*100)
+  mean(abs((y_true - y_pred)/y_true)) * 100
 }
 
 R_square <- function(actual, predicted) {
-  val <- 1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))
-  return(val)
+  1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))
 } 
 
 zscore <- function(y){
@@ -51,3 +49,4 @@ test <- function(rhos, df1){
   }
   return(list(mqs=mqs,mqs_no=mqs_no))
 }
+

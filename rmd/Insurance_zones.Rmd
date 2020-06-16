@@ -14,6 +14,10 @@ Load packages (from the library)
 ```{r lib, message=FALSE}
 library(reshape2)
 library(dplyr)
+
+#remotes::install_github("reagro/agro")
+#remotes::install_github("reagro/agrodata")
+
 library(agrodata)
 #path <- "D:/UCDavis/QUIIC/github/IBLI/"
 #source(paste0(path,"scripts/Functions.R"))
@@ -89,6 +93,7 @@ xndvi <- dplyr::ungroup(dplyr::mutate(dplyr::group_by(n, sublocation), zndvi=zsc
 ```
 
 At least they are different from a conventional computation. 
+Or perhaps your intent was different?
 
 ```{r d4b}
 z_score <- function(d, v){
@@ -147,7 +152,7 @@ d$mortality_rate <- d$mortality_rate * 100
 
 Display the spatial variation on mortality.
 
-STOP! for merge to work you need terra >= 0.6-15
+STOP! for the merge below to work you need terra >= 0.6-15
 
 ```{r sv1}
 temp <- aggregate(amort[, "mortality_rate", drop=FALSE], amort[, c("season", "sublocation"), drop=FALSE],mean, na.rm=T)
@@ -163,6 +168,7 @@ par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
 raster::spplot(lr, "mortality_rate", col.regions=cols, main="LRLD mean mortality")
 raster::spplot(sr, "mortality_rate", col.regions=cols, main="SRSD mean mortality")
 ```
+
 
 ## Clustering zones
 
@@ -182,25 +188,23 @@ set.seed(99)
 r_kmn <- kmeans(df[,-1], centers = 10, iter.max = 500, nstart = 5, algorithm="Lloyd")
 # kmeans returns an object of class "kmeans"
 subloc$zone <- r_kmn$cluster
-
 ```
 
 Display the old and new zones
 
-```{r z2}
+```{r z2, message=FALSE}
 #x11()
 terra::plot(subloc, "zone")
 #text(subloc, subloc$zone, cex=.8)
 #Merge to current boundaries
 z_10 <- aggregate(subloc, by="zone")
-lines(z_10, col="red", lwd = 2)
-
+terra::lines(z_10, col="red", lwd = 2)
+plot(z_10)
 ```
 
 ## Effect of zones on mortality predictions
 
-We will determine zones between 4--10 and evaluate the effect of the zones on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and RMSE. For instance, a MAPE of (1) < 10 indicates highly accurate prediction, while (2) 10--0 good prediction,
- 3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
+We will determine zones between 4--10 and evaluate the effect of the zones on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and RMSE. For instance, a MAPE of (1) < 10 indicates highly accurate prediction, while (2) 10--0 good prediction, 3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
 
 ```{r e1}
 rmse <- function(error){ return(sqrt(mean(error^2)))}
