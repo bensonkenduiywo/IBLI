@@ -99,10 +99,10 @@ ndvi <- rbind(LR_ndvi, SR_ndvi)
 Compute the zScored daily average rainfall per season per sublocation.
 
 ```{r d4a}
-rain <- ungroup(mutate(group_by(rain,SUBLOCATION), 
+rain <- ungroup(mutate(group_by(rain,SUBLOCATION, season),
                        zrain=zscore(rainfall)))
 
-ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION), 
+ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION, season),
                        zndvi=zscore(ndvi)))
 ```
 
@@ -205,8 +205,8 @@ for(z in 1:length(zones)){
   aoi$Zones <- r_kmn$cluster
   df2 <- 0
   df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
-                       zrain=mean(zrain), zndvi=mean(zndvi)))
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones),
+                       zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #Rainfall
   p <- predict(m_r, df2)
   r_r[z] <- R_square(df2$mortality_rate, p)
@@ -220,7 +220,7 @@ for(z in 1:length(zones)){
 }
 quality <- data.frame(No_Zone=zones,ndvi_R2=r_n,rain_R2=r_r, ndvi_RMSE=e_n,rain_RMSE=e_r,ndvi_mape=mape_n,rain_mape=mape_r)
 quality
-
+###barplot(quality)
 ```
 
 Plot the influence of zone size on R$^2$ and RMSE of the mortality model.
@@ -253,8 +253,8 @@ for(z in 1:length(zones)){
   aoi$Zones <- r_kmn$cluster
   df2 <- 0
   df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
-                       zrain=mean(zrain), zndvi=mean(zndvi)))
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones),
+                       zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #1.0 Mortality model
   #Rainfall
   df2$rain_mortality <- predict(m_r, df2)
@@ -313,8 +313,9 @@ for(z in 1:length(zones)){
   df2 <- 0
   df2 <- merge(d, aoi[,-c(1:5,7:12)], by="sublocation")
   
-  df2 <- ungroup(mutate(group_by(df2, season, year,Zones), 
-                       zrain=mean(zrain), zndvi=mean(zndvi)))
+  df2 <- ungroup(mutate(group_by(df2, season, year,Zones),
+                       zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)
+                       ))
   #1.0 Mortality model
   #Rainfall
   df2$rain_mortality <- predict(m_r, df2)

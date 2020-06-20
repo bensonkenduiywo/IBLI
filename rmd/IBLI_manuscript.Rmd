@@ -183,10 +183,10 @@ zscore <- function(y){
 The compute the zScored daily average rainfall per season per sublocation.
 
 ```{r d7}
-rain <- ungroup(mutate(group_by(rain,SUBLOCATION), 
+rain <- ungroup(mutate(group_by(rain,SUBLOCATION, season),
                        zrain=zscore(rainfall)))
 
-ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION), 
+ndvi <- ungroup(mutate(group_by(ndvi,SUBLOCATION, season),
                        zndvi=zscore(ndvi)))
 ```
 
