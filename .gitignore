@@ -1,5 +1,11 @@
+<<<<<<< HEAD
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
 test.R
+=======
+.Rhistory
+*.html
+*.pdf
+>>>>>>> 85c9f4b5cf0955423f5d73342df39ce94437a090

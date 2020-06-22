@@ -1,5 +1,6 @@
 #Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
 seasonMean <- function(year, df, season){
+	df$date <- as.Date(df$date, format = "X%Y%m%d")
   if(season =="long"){
     sdate <- paste0(year, "-03-01")
     edate <- paste0(year, "-09-30")
@@ -18,19 +19,19 @@ seasonMean <- function(year, df, season){
   return(ym)
 }
 
+
+
 rmse <- function(error){
   return(sqrt(mean(error^2)))
 }
 
 
 MAPE <- function (y_pred, y_true){
-  MAPE <- mean(abs((y_true - y_pred)/y_true))
-  return(MAPE*100)
+  mean(abs((y_true - y_pred)/y_true)) * 100
 }
 
 R_square <- function(actual, predicted) {
-  val <- 1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))
-  return(val)
+  1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))
 } 
 
 zscore <- function(y){
@@ -48,3 +49,4 @@ test <- function(rhos, df1){
   }
   return(list(mqs=mqs,mqs_no=mqs_no))
 }
+
