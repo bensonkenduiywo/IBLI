@@ -22,7 +22,7 @@ library(dplyr)
 
 ### Administrative data
 
-Load sublocation boundaries
+Load sub-location boundaries
 
 ```{r d12}
 subloc <- agrodata::data_ibli("marsabit")
