@@ -1,0 +1,267 @@
+---
+title: "Experiments for ideas of 25 June 2020"
+author: "Benson Kenduiywo"
+date: "26/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+Please install *raster* ` `, terra `remotes::install_github("rspatial/terra")` and *agrodata* `remotes::install_github("reagro/agrodata")` in that order. Load necessary libraries.
+
+
+```{r lib, message=FALSE}
+rm(list = ls(all=TRUE))
+library(agrodata)
+library(reshape2)
+library(dplyr)
+```
+
+## Data preparation
+
+### Administrative data
+
+Load sub-location boundaries
+
+```{r d12}
+subloc <- agrodata::data_ibli("marsabit")
+names(subloc)[6] <- "sublocation"
+subloc
+```
+
+### NDVI and rainfall data.
+
+Get Normalized Difference Vegetative Index (NDVI) data from NOAA-AVHRR, MODIS and rainfall from CHIRPS. The datasets are already spatially aggregated (mean) with respect to sublocation boundaries.
+
+```{r d1}
+n <- agrodata::data_ibli("marsabit_avhrr_ndvi") #NOAA
+colnames(n)[1:5]
+m <- agrodata::data_ibli("marsabit_modis_ndvi_agg") #MODIS
+colnames(m)[1] <- toupper(colnames(m)[1])
+colnames(m)[1:5]
+p <- agrodata::data_ibli("marsabit_chirps_precipitation") #rainfall
+colnames(p)[1:5]
+```
+
+
+Reshape the data from wide to long with date as a variable. 
+
+```{r d2}
+p <- melt(p, variable.name = "date", value.name = "rainfall",id.vars = "SUBLOCATION")
+p[1,]
+n <- melt(n, variable.name = "date", value.name = "noaa", id.vars = "SUBLOCATION")
+n[1,]
+m <- melt(m, variable.name = "date", value.name = "modis", id.vars = "SUBLOCATION")
+m[1,]
+
+```
+
+Format the date variable by removing unnecessary variables.
+
+```{r d3}
+#Chirps
+date <- gsub("X", "", p$date)
+p$date <- as.Date(as.character(date), format = "%Y%m%d")
+p[1,]
+#NOAA
+date <- gsub("X", "", n$date)
+n$date <- as.Date(as.character(date), format = "%Y%m%d")
+n[1,]
+#MODIS
+date <- gsub("X", "", m$date)
+m$date <- as.Date(as.character(date), format = "%Y_%m_%d")
+m[1,]
+
+```
+Compute daily average rainfall and NDVI per season in each year. First Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
+
+```{r fxn1}
+seasonMean <- function(year, df, season){
+	df$date <- as.Date(df$date, format = "X%Y%m%d")
+  if(season =="long"){
+    sdate <- paste0(year, "-03-01")
+    edate <- paste0(year, "-09-30")
+    season <- "LRLD"
+  }else if (season =="short"){
+    sdate <- paste0(year-1, "-10-01")
+    edate <- paste0(year, "-02-28")
+    season <- "SRSD"
+  }else{
+    print("Define season")
+  }
+  ydf <- df[df$date >= sdate & df$date <= edate, ]
+  ym <- aggregate(ydf[,3], ydf[,1, drop=FALSE], mean, na.rm=T)
+  ym$year <- year
+  ym$season <- season
+  return(ym)
+}
+
+```
+
+Now compute the averages using the function.
+
+```{r d4}
+years <- seq(1982, 2019, 1)
+#CHIRPS
+temp1 <- lapply(years, seasonMean, p, "long")
+temp1 <- do.call(rbind, temp1)
+temp2 <- lapply(years, seasonMean, p, "short")
+temp2 <- do.call(rbind, temp2)
+p <- rbind(temp1, temp2)
+names(p)[2] <- "rainfall"
+#NOAA NDVI
+temp1 <- lapply(years, seasonMean, n, "long")
+temp1 <- do.call(rbind, temp1)
+temp2 <- lapply(years, seasonMean, n, "short")
+temp2 <- do.call(rbind, temp2)
+n <- rbind(temp1, temp2)
+names(n)[2] <- "noaa"
+#MODIS NDVI
+years <- seq(2001, 2019, 1)
+temp1 <- lapply(years, seasonMean, m, "long")
+temp1 <- do.call(rbind, temp1)
+temp2 <- lapply(years, seasonMean, m, "short")
+temp2 <- do.call(rbind, temp2)
+m <- rbind(temp1, temp2)
+names(m)[2] <- "modis"
+
+```
+
+### Livestock data
+
+Mortality and causes of mortality data
+
+```{r d13}
+mort <- agrodata::data_ibli("marsabit_mortality.rds")
+cause <- agrodata::data_ibli("marsabit_losses")[,c("hhid", "sublocation", "cause","month", "year")]
+cause$season <- "SRSD"
+cause$season[cause$month >=3 & cause$month <=9] <-"LRLD"
+head(cause, n=2)
+cause <- na.omit(cause)
+
+```
+
+Merge causes table with mortality data.
+
+```{r d3a}
+mort2  <- merge(mort, cause, by=c("hhid","sublocation", "season", "year"))
+
+```
+Compute mortality
+
+```{r d5}
+#Consider: Disease, Starvation, Rain, predation
+mort2 <- mort2[!(mort2$cause %in% c("Just lost", "Old age","Premature birth")),]
+mort2 <- mort2[mort2$type == "TLU", ]
+mort2 <- na.omit(mort2)
+amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
+amort$mortality_rate <- (amort$loss/amort$stock_beginning) * 100
+
+```
+
+## Normal vs lognormal data treament 
+
+compute z-Score based data time series lengths. Z-score function.
+
+```{r zscore}
+zscore <- function(y){ 
+  (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
+  }
+
+```
+
+compute zscores.
+
+```{r n2}
+df1 <- merge(p, n, by = c("SUBLOCATION","year", "season")) #NOAA and CHIRPSs
+df1 <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zlograin=zscore(log(rainfall)), zrain=zscore(rainfall)))
+#MODIS
+df2 <- ungroup(mutate(group_by(m, SUBLOCATION, season), zmodis=zscore(modis)))
+
+```
+
+Check predictors distributions.
+
+```{r n1, message=FALSE}
+library(MASS)
+#NOAA
+x <- df1$noaa
+x11()
+hist(x, breaks=30, prob=T, xlab="NOAA NDVI", main = "NOAA NDVI")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+#MODIS NDVI
+x <- df2$modis
+x11()
+hist(x, breaks=30, prob=T, xlab="MODIS NDVI", main = "MODIS NDVI")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+#CHIPRS
+x <- df1$rainfall
+x11()
+hist(x, breaks=40, prob=T, xlab="CHIPRS Rainfall", main = "Rainfall")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+
+x11()
+x <- log(df1$rainfall)
+hist(x, breaks=40, prob=T, xlab="CHIPRS Rainfall", main = "Log transformed Rainfall")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+
+```
+
+It seems the *log* transforms the rainfall data to a distribution close to normal. We will thus compute zScored log of transformed daily average rainfall and NDVI per season per sub-location.
+
+Merge mortality with NDVI and rainfall data.
+
+```{r d6}
+colnames(amort)[3] <- "SUBLOCATION"
+df1 <- merge(df1, amort, by=c("year", "season", "SUBLOCATION"))
+df2 <- merge(df2, amort, by=c("year", "season", "SUBLOCATION"))
+
+```
+
+### Effect rainfall data transformation on mortality predictions
+
+We will determine the effect rainfall data trasnformation on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and RMSE. For instance, a MAPE of (1) < 10 indicates highly accurate prediction, while (2) 10--0 good prediction, 3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
+
+MAPE, RMSE and R$^2$ functions are given as:
+
+```{r fxn2}
+rmse <- function(error){ return(sqrt(mean(error^2)))}
+MAPE <- function (y_pred, y_true){ mean(abs((y_true - y_pred)/y_true)) * 100 }
+R_square <- function(actual, predicted) { 1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))} 
+```
+
+Mortality modelling and prediction
+
+```{r d7}
+#Zscores from untransformed rainfall
+m_rz <- loess(mortality_rate ~ zrain , data=df1, control=loess.control(surface="direct"))
+e <- predict(m_rz, df1)
+R_square(df2$mortality_rate, e)
+rmse(df2$mortality_rate - e)
+#log Transformed rainfall
+m_rz <- loess(mortality_rate ~ zlograin , data=df1, control=loess.control(surface="direct"))
+e <- predict(m_rz, df1)
+R_square(df2$mortality_rate, e)
+rmse(df2$mortality_rate - e)
+
+```
+
+## Short vs long time series
+
+Here we test the effect of shortening the rainfall and noaa AVHRR data to MODIS time series length on R$^2$.
+
+
+
+
+## Regime switching linear regression vs lowess
+
+
+

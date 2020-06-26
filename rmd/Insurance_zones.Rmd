@@ -89,6 +89,7 @@ seasonMean <- function(year, df, season){
 
 
 ```
+
 Now compute the averages using the function.
 
 ```{r d4}
@@ -137,6 +138,7 @@ head(cause, n=2)
 cause <- na.omit(cause)
 
 ```
+
 Merge causes table with mortality data.
 
 ```{r d3a}
@@ -164,6 +166,7 @@ d <- merge(ndvi, amort, by=c("year", "season", "sublocation"))
 colnames(rain)[1] <- "sublocation"
 d <- merge(rain, d, by=c("year", "season", "sublocation"))
 d$mortality_rate <- d$mortality_rate * 100
+
 ```
 
 ## Spatial Variation of mortality
