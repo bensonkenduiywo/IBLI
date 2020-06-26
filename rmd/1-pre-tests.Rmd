@@ -256,24 +256,30 @@ rmse(df2$mortality_rate - e)
 
 ## Short vs long time series
 
-Here we test the effect of shortening the rainfall and NOAA AVHRR data to MODIS time series length on R$^2$.
+Here we test the effect of shortening the rainfall and NOAA AVHRR data to MODIS time series length on R$^2$, RMSE and MAPE.
 
 ```{r t1}
-#Long time period
-df <- merge(p, n, by = c("SUBLOCATION","year", "season"))
-df3 <- ungroup(mutate(group_by(df, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
-df3 <- merge(df3, amort, by=c("year", "season", "SUBLOCATION"))
-#rainfall predictions from long time series (1982--2019)
-m_rz <- loess(mortality_rate ~ zrain , data=df3, control=loess.control(surface="direct"))
-e <- predict(m_rz, df3)
-R_square(df3$mortality_rate, e)
-#rainfall predictions from shortened time series(2001--2019)
-df4 <- df[df$year > 2000,]
-df4 <- ungroup(mutate(group_by(df4, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
-df4 <- merge(df4, amort, by=c("year", "season", "SUBLOCATION"))
-m_rz <- loess(mortality_rate ~ zrain , data=df4, control=loess.control(surface="direct"))
-e <- predict(m_rz, df4)
-R_square(df4$mortality_rate, e)
+
+#Impact of rainfal predictions based on shortening period of zScore calculations by 4 years starting from 1982
+R2 <- RMSE <- mape <- NULL
+year <- seq(1982,2015,1)
+i <- 0
+for(y in year){
+  i=i+1 
+  print(y)
+  df4 <- df[df$year >= y,]
+  df4 <- ungroup(mutate(group_by(df4, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
+  df4 <- merge(df4, amort, by=c("year", "season", "SUBLOCATION"))
+  m_rz <- loess(mortality_rate ~ zrain , data=df4, control=loess.control(surface="direct"))
+  e <- predict(m_rz, df4)
+  R2[i] <- R_square(df4$mortality_rate, e)
+  RMSE[i] <- rmse(df4$mortality_rate - e)
+  mape[i] <- MAPE(df4$mortality_rate, e)
+}
+plot(R2~year, pch=16)
+plot(mape~year, pch=16)
+plot(RMSE~year, pch=16) 
+  
 ```
 
 ## Regime switching linear regression vs lowess
