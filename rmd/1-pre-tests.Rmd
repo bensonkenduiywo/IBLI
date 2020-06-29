@@ -405,7 +405,7 @@ r2 <- R_square(data1$mortality_rate, p)
 cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
 data1$predicted_mortality <- p
 
-#Predict moratlity with defined zones
+#Predict mortality with defined zones
 m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data2, control=loess.control(surface="direct"))
 p <- predict(m_l, data2)
 r2 <- R_square(data2$mortality_rate, p)
@@ -427,7 +427,7 @@ data2$payouts <- pmax(0, data2$predicted_mortality - trig)/100 * 1000
 
 Assume an actuarially fair premium contract and farmers capital the percentage of herd remaining after loss (observed mortality) with 1TLU=1000$. 
 
-```{r z4}
+```{r z6}
 premium <- mean(data1$payouts)
 cat("The premium is $", premium,"\n",sep = "")
 data1$capital <- ((100 - data1$mortality_rate)/100) * 1000
@@ -453,14 +453,17 @@ test <- function(rho, df1){
 }
 zoned <- unzoned <- NULL
 
-rhos <- seq(0, 5, 1)
+rhos <- seq(0, 10, 1)
 for(z in 1:length(rhos)){
   #CASE 1: NO ZONES
   unzoned[z] <- test(rhos[z], data1)
   #CASE 2: DEFINED INSURANCE ZONES
   zoned[z]   <- test(rhos[z], data2)
 }
-
+x11()
+plot(zoned~rhos, ylab="Insurance benefit", xlab="Risk aversion", pch=16, col="blue")
+points(unzoned~rhos,pch=16,col="red")
+legend("bottomright",   legend=c("Unzoned",  "Zoned"), fill=c("red", "blue"), title=expression(paste("Region type")), bty = "n")
 zoned
 unzoned
 
