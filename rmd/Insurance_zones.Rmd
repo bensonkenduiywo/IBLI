@@ -246,14 +246,16 @@ for(z in 1:length(zones)){
   r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
   aoi$Zones <- r_kmn$cluster
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season,Zones),
+  df2 <- ungroup(mutate(group_by(df2, season, Zones),
                        zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #Rainfall
+  #m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   p <- predict(m_r, df2)
   r_r[z] <- R_square(df2$mortality_rate, p)
   e_r[z] <- rmse(df2$mortality_rate - p)
   mape_r[z] <- MAPE(df2$mortality_rate, p)
   #NDVI
+  #m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   p <- predict(m_n, df2)
   r_n[z] <- R_square(df2$mortality_rate, p)
   e_n[z] <- rmse(df2$mortality_rate - p)
@@ -317,8 +319,10 @@ for(z in 1:length(zones)){
                        zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #1.0 Mortality model
   #Rainfall
+  #m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   df2$rain_mortality <- predict(m_r, df2)
   #NDVI
+  #m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   df2$ndvi_mortality <- predict(m_n, df2)
   #2.0 Contract design
   r_trig <- quantile(df2$rain_mortality, 0.80, na.rm=T)
