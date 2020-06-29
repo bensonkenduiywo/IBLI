@@ -254,7 +254,7 @@ rmse(df2$mortality_rate - e)
 
 ```
 
-## Short verss long time series computed Z-scores
+## Short versus long time series computed Z-scores
 
 Here we test the effect of shortening the time period of computing Z-scores from rainfall, NOAA AVHRR and MODIS data on mortality predictions. Therefore, we shorten the time series by leaving out a year up to the year 2008. This because we have observed mortality data from 2008--2015.
 
@@ -325,6 +325,145 @@ curve(slope_a*x + intercept_a, add=T, from=-3, to=0)
 ```
 
 
+## Effect No zone vs group of sub-locations on MQS
 
+### Clustering zones
+
+Use kmeans to define/create 4 insurance zones based on spatial-temporal sublocation indices from NOAA NDVI, MODIS NDVI and rainfall indices per season per year.
+
+```{r z1}
+temp1 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="rainfall")
+temp2 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="noaa")
+temp3 <- reshape2::dcast(m, SUBLOCATION ~ year+season, value.var="modis")
+df_w <- merge(temp1,temp2, by=c("SUBLOCATION"))
+df_w <- merge(df_w, temp3, by=c("SUBLOCATION"))
+subs <- sort(unique(amort$SUBLOCATION))
+aoi <- subloc[subloc$sublocation %in% subs,]
+df_w <- df_w[df_w$SUBLOCATION %in% subs,]
+set.seed(99)
+#rf <-  randomForest(df_w[,-1],ntree=200,importance = TRUE)
+#Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method 
+r_kmn <- kmeans(df_w[,-1], centers = 4, iter.max = 500, nstart = 1, algorithm="Lloyd")
+# kmeans returns an object of class "kmeans"
+aoi$Zones <- r_kmn$cluster
+
+```
+
+Display the old and new zones
+
+```{r z2, message=FALSE}
+x11()
+plot(aoi, "Zones", main= "NDVI+Rain")
+#Merge to current boundaries
+x11()
+z_10 <- aggregate(aoi, by="Zones")
+plot(z_10, "Zones", border = "red", lwd = 2)
+legend("bottomleft", c("Original", "Clustered"), col=c("black","red"), lty = 1, lwd=2, title="Sublocation clusters")
+```
+
+### MQS test
+
+Prepare data for modelling and MQS
+
+```{r z3}
+#No zones defined
+data1 <- ungroup(mutate(group_by(df, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
+temp <- ungroup(mutate(group_by(m, SUBLOCATION, season), zmodis=zscore(modis)))
+data1 <- merge(data1, amort, by=c("SUBLOCATION", "season", "year"))
+data1 <- merge(data1, temp, by=c("SUBLOCATION", "season", "year"))
+#Add Zones
+names(aoi)[6] <- "SUBLOCATION"
+data1 <- merge(data1, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
+#Zones defined
+data2 <- merge(df, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
+data2 <- ungroup(mutate(group_by(data2, Zones, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
+temp <- merge(m, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
+temp <- ungroup(mutate(group_by(temp, Zones, season), zmodis=zscore(modis)))
+
+data2 <- merge(data2, amort, by=c("SUBLOCATION", "season", "year"))
+data2 <- merge(data2, temp, by=c("SUBLOCATION", "season", "year"))
+
+```
+
+Predict livestock mortality using NDVI (NOAA and MODIS) and rainfall.
+
+```{r z4}
+#RAINFALL ONLY
+m_l <- loess(mortality_rate ~ zrain, data=data1, control=loess.control(surface="direct"))
+p <- predict(m_l, data1)
+r2 <- R_square(data1$mortality_rate, p)
+cat("Rainfall model R2 values is ", r2, "\n")
+#RAINFALL and NOAA NDVI
+m_l <- loess(mortality_rate ~ zrain + znoaa, data=data1, control=loess.control(surface="direct"))
+p <- predict(m_l, data1)
+r2 <- R_square(data1$mortality_rate, p)
+cat("Rainfall & NOAA NDVI model R2 values is ", r2, "\n")
+#RAINFALL, NOAA NDVI and MODIS NDVI
+m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data1, control=loess.control(surface="direct"))
+p <- predict(m_l, data1)
+r2 <- R_square(data1$mortality_rate, p)
+cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
+data1$predicted_mortality <- p
+
+#Predict moratlity with defined zones
+m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data2, control=loess.control(surface="direct"))
+p <- predict(m_l, data2)
+r2 <- R_square(data2$mortality_rate, p)
+cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
+data2$predicted_mortality <- p
+
+```
+
+Compute payouts — in units of monetary value of TLU — as the percentage difference between predicted mortality in TLU and a trigger (the 80th percentile). Those below the trigger get no payout. We assume that 1 TLU has a monetary equivalence of 1000$.
+
+```{r z5}
+trig <- quantile(data1$predicted_mortality, 0.80, na.rm=T)
+data1$payouts <- pmax(0, data1$predicted_mortality - trig)/100 * 1000
+#Case with defined zones
+trig <- quantile(data2$predicted_mortality, 0.80, na.rm=T)
+data2$payouts <- pmax(0, data2$predicted_mortality - trig)/100 * 1000
+
+```
+
+Assume an actuarially fair premium contract and farmers capital the percentage of herd remaining after loss (observed mortality) with 1TLU=1000$. 
+
+```{r z4}
+premium <- mean(data1$payouts)
+cat("The premium is $", premium,"\n",sep = "")
+data1$capital <- ((100 - data1$mortality_rate)/100) * 1000
+data1$income_noins <- data1$capital
+data1$income_ins   <- (data1$capital + data1$payouts) - premium
+#Case with defined zones
+premium <- mean(data2$payouts)
+data2$capital <- ((100 - data2$mortality_rate)/100) * 1000
+data2$income_noins <- data2$capital
+data2$income_ins   <- (data2$capital + data2$payouts) - premium
+
+```
+
+Let us now evaluate insurance welfare with insurance zones and without
+
+```{r mqs1}
+library(agro)
+test <- function(rho, df1){
+  ce_base <- ce_income(df1$income_noins, rho)
+  ce_ins  <- ce_income(df1$income_ins, rho)
+  mqs    <- ce_ins - ce_base
+  return(mqs)
+}
+zoned <- unzoned <- NULL
+
+rhos <- seq(0, 5, 1)
+for(z in 1:length(rhos)){
+  #CASE 1: NO ZONES
+  unzoned[z] <- test(rhos[z], data1)
+  #CASE 2: DEFINED INSURANCE ZONES
+  zoned[z]   <- test(rhos[z], data2)
+}
+
+zoned
+unzoned
+
+```
 
 

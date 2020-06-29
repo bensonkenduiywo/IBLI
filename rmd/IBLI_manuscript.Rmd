@@ -575,7 +575,7 @@ data <- merge(data, temp, by=c("sublocation", "season", "year"))
 Compute pastarolist capital as the percentage of TLU remaining after losses. NB: 1 TLU is $1000.
 
 ```{r e2}
-data$capital <- (1 - data$mortality_rate) * 1000
+data$capital <- ((1 - data$mortality_rate)/100) * 1000
 ```
 
 Let us assess the welfare of index insurance to the pastoralists. So get the CE function.

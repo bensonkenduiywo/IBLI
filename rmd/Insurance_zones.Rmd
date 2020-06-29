@@ -246,7 +246,7 @@ for(z in 1:length(zones)){
   r_kmn <- kmeans(df1[,-1], centers = zones[z], iter.max = 500, nstart = 2, algorithm="Lloyd")
   aoi$Zones <- r_kmn$cluster
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year,Zones),
+  df2 <- ungroup(mutate(group_by(df2, season,Zones),
                        zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #Rainfall
   p <- predict(m_r, df2)
@@ -313,7 +313,7 @@ for(z in 1:length(zones)){
   aoi$Zones <- r_kmn$cluster
   df2 <- 0
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year,Zones),
+  df2 <- ungroup(mutate(group_by(df2, season,Zones),
                        zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #1.0 Mortality model
   #Rainfall
@@ -372,7 +372,7 @@ for(z in 1:length(zones)){
   aoi$Zones <- r_kmn$cluster
   df2 <- 0
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
-  df2 <- ungroup(mutate(group_by(df2, season, year,Zones),
+  df2 <- ungroup(mutate(group_by(df2, season,Zones),
                        zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
   #1.0 Mortality model
   #Rainfall
@@ -387,7 +387,7 @@ for(z in 1:length(zones)){
   df2$n_pay <- pmax(0, df2$ndvi_mortality - n_trig)/100 * 1000
   #3.0 Evaluation
   #NDVI
-  df2$capital <- (100 - df2$mortality_rate) * 1000
+  df2$capital <- ((100 - df2$mortality_rate)/100) * 1000
   n_premium <- mean(df2$n_pay) * (1 + markup)
   df_n <- data.frame(y_noins = df2$capital) # no insurance
   df_n$y_nomarkup <- (df2$capital + df2$n_pay) - mean(df2$n_pay) #no markup
