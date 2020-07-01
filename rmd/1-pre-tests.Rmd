@@ -381,7 +381,7 @@ temp <- merge(m, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION
 temp <- ungroup(mutate(group_by(temp, Zones, season), zmodis=zscore(modis)))
 
 data2 <- merge(data2, amort, by=c("SUBLOCATION", "season", "year"))
-data2 <- merge(data2, temp, by=c("SUBLOCATION", "season", "year"))
+data2 <- merge(data2, temp, by=c("SUBLOCATION", "season", "year", "Zones"))
 
 ```
 
@@ -406,6 +406,8 @@ cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
 data1$predicted_mortality <- p
 
 #Predict mortality with defined zones
+data2 <- ungroup(mutate(group_by(data2, year, season, Zones.x),
+                       mortality_rate=mean(mortality_rate)))
 m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data2, control=loess.control(surface="direct"))
 p <- predict(m_l, data2)
 r2 <- R_square(data2$mortality_rate, p)
