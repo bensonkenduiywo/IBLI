@@ -193,8 +193,8 @@ raster::spplot(sr, "mortality_rate", col.regions=cols, main="SRSD mean mortality
 Use kmeans to cluster zones based on NDVI and rainfall per season per year
 
 ```{r z1}
-n_w <- reshape2::dcast(ndvi, sublocation ~ year+season, value.var="ndvi")
-r_w <- reshape2::dcast(rain, sublocation ~ year+season, value.var="rainfall")
+n_w <- reshape2::dcast(ndvi, sublocation ~ year+season, value.var="zndvi")
+r_w <- reshape2::dcast(rain, sublocation ~ year+season, value.var="zrain")
 df <- merge(n_w,r_w, by=c("sublocation"))
 subs <- sort(unique(d$sublocation))
 aoi <- subloc[subloc$sublocation %in% subs,]
@@ -212,11 +212,14 @@ Display the old and new zones
 
 ```{r z2, message=FALSE}
 x11()
-plot(aoi, main= "NDVI+Rain")
+#par(mfrow=c(2, 1), mar=c(4, 4, 1, 10)) #c(bottom, left, top, right)
+plot(aoi, "sublocation", main= "NDVI+Rain")
 #Merge to current boundaries
+x11()
 z_10 <- aggregate(aoi, by="Zones")
-plot(z_10, add = TRUE, border = "red", lwd = 2)
-legend("bottomleft", c("Original", "Clustered"), col=c("black","red"), lty = 1, lwd=2, title="Sublocation clusters")
+plot(z_10, "Zones", add=T, lwd = 2)
+#legend("bottomleft", c("Original", "Clustered"), col=c("black","red"), lty = 1, lwd=2, title="Sublocation clusters")
+
 ```
 
 ## Effect of zones on mortality predictions
@@ -238,8 +241,8 @@ Let now determine homogenous zones between 2--15 i.e. minimum zones are 2 and ma
 zones <- seq(2,15,1) 
 r_n <- e_n <- r_r <- e_r <- mape_n <- mape_r <- NULL
 #Construct a Global mortality model based on NDVI & rainfall
-m_r <- loess(mortality_rate ~ zrain , data=d, control=loess.control(surface="direct"))
-m_n <- loess(mortality_rate ~ zndvi, data=d, control=loess.control(surface="direct"))
+#m_r <- loess(mortality_rate ~ zrain , data=d, control=loess.control(surface="direct"))
+#m_n <- loess(mortality_rate ~ zndvi, data=d, control=loess.control(surface="direct"))
 
 for(z in 1:length(zones)){
   set.seed(99)
@@ -247,15 +250,17 @@ for(z in 1:length(zones)){
   aoi$Zones <- r_kmn$cluster
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
   df2 <- ungroup(mutate(group_by(df2, season, Zones),
-                       zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
+                       zrain=zscore(rainfall), zndvi=zscore(ndvi)))
+  df2 <- ungroup(mutate(group_by(df2, year, season, Zones),
+                       mortality_rate=mean(mortality_rate)))
   #Rainfall
-  #m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
+  m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   p <- predict(m_r, df2)
   r_r[z] <- R_square(df2$mortality_rate, p)
   e_r[z] <- rmse(df2$mortality_rate - p)
   mape_r[z] <- MAPE(df2$mortality_rate, p)
   #NDVI
-  #m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
+  m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   p <- predict(m_n, df2)
   r_n[z] <- R_square(df2$mortality_rate, p)
   e_n[z] <- rmse(df2$mortality_rate - p)
@@ -263,6 +268,7 @@ for(z in 1:length(zones)){
 }
 quality <- data.frame(No_Sub=zones,ndvi_R2=r_n,rain_R2=r_r, ndvi_RMSE=e_n,rain_RMSE=e_r,ndvi_mape=mape_n,rain_mape=mape_r)
 quality #No_Sub is the number of sublocation clusters created by K-means
+
 ```
 
 Plot the influence of zone size on R$^2$ and RMSE of the mortality model.
@@ -274,8 +280,7 @@ temp <- temp[-1,-1]
 barplot(temp[1:2,], col=c("green", "blue"), ylab=expression(paste(R^2, " value")), xlab="Number of insurance zones")
 legend("topright",   legend=c("NDVI",  "Rainfall"), fill=c("green", "blue"), title=expression(paste("Model type")), bty = "n")
 
-
-#windows()
+x11()
 #par(mfrow=c(1,2),mar=c(15,4.5,1,1))
 par(mfrow=c(1, 2), mar=c(15, 4.5, 2, 0.5)) #c(bottom, left, top, right)
 plot(zones, r_n, type="l", ylim= c(0,1), col="green", ylab=expression(paste(R^2, " value")), xlab= "Number of zones", cex.axis =1.1, cex.lab = 1.2, lwd=2)
@@ -316,13 +321,15 @@ for(z in 1:length(zones)){
   df2 <- 0
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
   df2 <- ungroup(mutate(group_by(df2, season,Zones),
-                       zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
+                       zrain=zscore(rainfall), zndvi=zscore(ndvi)))
+  df2 <- ungroup(mutate(group_by(df2, year, season, Zones),
+                       mortality_rate=mean(mortality_rate)))
   #1.0 Mortality model
   #Rainfall
-  #m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
+  m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   df2$rain_mortality <- predict(m_r, df2)
   #NDVI
-  #m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
+  m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   df2$ndvi_mortality <- predict(m_n, df2)
   #2.0 Contract design
   r_trig <- quantile(df2$rain_mortality, 0.80, na.rm=T)
@@ -357,11 +364,11 @@ a <-  matrix(unlist(mqs_n),ncol=2,byrow=TRUE)
 b <-  matrix(unlist(mqs_r),ncol=2,byrow=TRUE)
 x11()
 par(mfrow=c(1, 2), mar=c(10, 4.5, 2, 0.5))
-plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Number of zones", cex=2, ylim=c(0, 30), main=expression(paste(rho," = 1.5")))
+plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Number of zones", cex=2, ylim=c(0, 10), main=expression(paste(rho," = 1.5")))
 lines(zones, a[,2], col="green")
 lines(zones, b[,2], col="magenta")
 lines(zones, b[,1], col="blue")
-legend("bottomright", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
+legend("top", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
 
 ```
 
@@ -377,11 +384,15 @@ for(z in 1:length(zones)){
   df2 <- 0
   df2 <- merge(d, as.data.frame(aoi[,c("sublocation", "Zones")]), by="sublocation")
   df2 <- ungroup(mutate(group_by(df2, season,Zones),
-                       zrain=mean(zrain), zndvi=mean(zndvi), mortality_rate=mean(mortality_rate)))
+                       zrain=zscore(rainfall), zndvi=zscore(ndvi)))
+  df2 <- ungroup(mutate(group_by(df2, year, season, Zones),
+                       mortality_rate=mean(mortality_rate)))
   #1.0 Mortality model
   #Rainfall
+  m_r <- loess(mortality_rate ~ zrain , data=df2, control=loess.control(surface="direct"))
   df2$rain_mortality <- predict(m_r, df2)
   #NDVI
+  m_n <- loess(mortality_rate ~ zndvi, data=df2, control=loess.control(surface="direct"))
   df2$ndvi_mortality <- predict(m_n, df2)
   #2.0 Contract design
   r_trig <- quantile(df2$rain_mortality, 0.80, na.rm=T)
@@ -414,11 +425,11 @@ Make a plot to evaluate if the size of the zone clusters influence insurance wel
 ```{r mqs4}
 a <-  matrix(unlist(mqs_n),ncol=2,byrow=TRUE)
 b <-  matrix(unlist(mqs_r),ncol=2,byrow=TRUE)
-plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Number of zones", cex=2, ylim=c(0, 700), main=expression(paste(rho," = 5")))
+plot(zones, a[,1], type="l", col="red", ylab= "MQS (insurance benefit per TLU in $)", xlab="Number of zones", cex=2, ylim=c(0, 50), main=expression(paste(rho," = 5")))
 lines(zones, a[,2], col="green")
 lines(zones, b[,2], col="magenta")
 lines(zones, b[,1], col="blue")
-legend("bottomright", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
+legend("top", c("NDVI 25% Marked-up", "NDVI No mark up", "Rainfall No mark up", "Rainfall 25% Marked-up"), lty=1, col=c("red", "green", "magenta", "blue"), title = "Insurance type", bty = "n")
 
 ```
 
