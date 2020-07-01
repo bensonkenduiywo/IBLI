@@ -343,7 +343,7 @@ df_w <- df_w[df_w$SUBLOCATION %in% subs,]
 set.seed(99)
 #rf <-  randomForest(df_w[,-1],ntree=200,importance = TRUE)
 #Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method 
-r_kmn <- kmeans(df_w[,-1], centers = 4, iter.max = 500, nstart = 1, algorithm="Lloyd")
+r_kmn <- kmeans(df_w[,-1], centers = 3, iter.max = 500, nstart = 1, algorithm="Lloyd")
 # kmeans returns an object of class "kmeans"
 aoi$Zones <- r_kmn$cluster
 
@@ -406,7 +406,7 @@ cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
 data1$predicted_mortality <- p
 
 #Predict mortality with defined zones
-data2 <- ungroup(mutate(group_by(data2, year, season, Zones.x),
+data2 <- ungroup(mutate(group_by(data2, year, season, Zones),
                        mortality_rate=mean(mortality_rate)))
 m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data2, control=loess.control(surface="direct"))
 p <- predict(m_l, data2)
