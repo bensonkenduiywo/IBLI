@@ -1,0 +1,483 @@
+---
+title: "Experiments for ideas of 25 June 2020"
+author: "Benson Kenduiywo"
+date: "26/06/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Packages
+
+install the latest versions of raster, terra and agrodata (`remotes::install_github("reagro/agrodata")`) in that order. 
+
+```{r lib, message=FALSE}
+library(agrodata)
+library(dplyr)
+```
+
+## Data preparation
+
+### Administrative data
+
+Load sub-location boundaries
+
+```{r d12}
+subloc <- agrodata::data_ibli("marsabit")
+names(subloc)[6] <- "sublocation"
+subloc
+```
+
+### NDVI and rainfall data.
+
+Get Normalized Difference Vegetative Index (NDVI) data from NOAA-AVHRR, MODIS and rainfall from CHIRPS. The datasets are already spatially aggregated (mean) with respect to sublocation boundaries.
+
+```{r d1}
+n <- agrodata::data_ibli("marsabit_avhrr_ndvi") #NOAA
+colnames(n)[1:5]
+m <- agrodata::data_ibli("marsabit_modis_ndvi_agg") #MODIS
+colnames(m)[1] <- toupper(colnames(m)[1])
+colnames(m)[1:5]
+p <- agrodata::data_ibli("marsabit_chirps_precipitation") #rainfall
+colnames(p)[1:5]
+```
+
+
+Reshape the data from wide to long with date as a variable. 
+
+```{r d2}
+p <- reshape2::melt(p, variable.name = "date", value.name = "rainfall",id.vars = "SUBLOCATION")
+p[1,]
+n <- reshape2::melt(n, variable.name = "date", value.name = "noaa", id.vars = "SUBLOCATION")
+n[1,]
+m <- reshape2::melt(m, variable.name = "date", value.name = "modis", id.vars = "SUBLOCATION")
+m[1,]
+
+```
+
+Format the date variable by removing unnecessary variables.
+
+```{r d3}
+#Chirps
+p$date <- as.Date(p$date, format = "X%Y%m%d")
+p[1,]
+#NOAA
+n$date <- as.Date(n$date, format = "X%Y%m%d")
+n[1,]
+#MODIS
+m$date <- as.Date(m$date, format = "X%Y_%m_%d")
+m[1,]
+
+```
+Compute daily average rainfall and NDVI per season in each year. First Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
+
+```{r fxn1}
+seasonMean <- function(year, df, seasons=1:2) {
+	#df$date <- as.Date(df$date, format = "X%Y%m%d")
+  res <- list()
+  for (i in seasons) {
+    season <- ifelse(i==1, "long", "short")
+    if (season =="long") {
+      sdate <- paste0(year, "-03-01")
+      edate <- paste0(year, "-09-30")
+      season <- "LRLD"
+    } else if (season =="short") {
+      sdate <- paste0(year-1, "-10-01")
+      edate <- paste0(year, "-02-28")
+      season <- "SRSD"
+    } else {
+      stop("Define season")
+    }
+    ydf <- df[df$date >= sdate & df$date <= edate, ]
+    ym <- aggregate(ydf[,3], ydf[,1, drop=FALSE], mean, na.rm=T)
+    ym$year <- year
+    ym$season <- season
+    res[[i]] <- ym    
+  }  
+  do.call(rbind, res)  
+}
+
+```
+
+Now compute the averages using the function.
+
+```{r d4}
+years <- 1982:2019
+#CHIRPS
+temp <- lapply(years, seasonMean, p)
+p <- do.call(rbind, temp)
+names(p)[2] <- "rainfall"
+
+#NOAA NDVI
+temp <- lapply(years, seasonMean, n)
+n <- do.call(rbind, temp)
+names(n)[2] <- "noaa"
+
+#MODIS NDVI
+years <- 2001:2019
+temp <- lapply(years, seasonMean, m)
+m <- do.call(rbind, temp)
+names(m)[2] <- "modis"
+```
+
+
+### Livestock data
+
+Mortality and causes of mortality data
+
+```{r d13}
+mort <- agrodata::data_ibli("marsabit_mortality.rds")
+colnames(mort)[colnames(mort)=="type"] <- "animal"
+mort <- mort[mort$animal %in% c("Camel", "Cattle", "Shoat"), ]  # remote TLU for merging
+mort <- mort[!is.na(mort$mortality_rate), ]                     # remove zero stock
+
+cause <- agrodata::data_ibli("marsabit_losses")[,c("hhid", "sublocation", "animal", "cause","month", "year")]
+cause$animal[cause$animal == "Goat/Sheep"] <- "Shoat"
+cause$season <- "SRSD"
+cause$season[cause$month >=3 & cause$month <=9] <-"LRLD"
+head(cause, n=2)
+cause <- na.omit(unique(cause))
+table(cause$cause)
+```
+
+Merge causes table with mortality data.
+
+We cnnot really merge these. For now, to make progress, let's just drop that
+```{r d3a}
+nrow(mort)
+nrow(cause)
+mortx  <- merge(mort, cause, by=c("hhid","sublocation", "animal", "season", "year"), all.x=TRUE)
+nrow(mortx)
+```
+
+Compute mortality
+
+It might be of interest to do a seperatre model for Starvation/Drought
+
+
+```{r d5}
+#Consider: Disease, Starvation, Rain, predation
+#  can also be stress induced
+#mort2 <- mort2[!(mort2$cause %in% c("Just lost", "Old age", "Premature birth")),]
+#mort2 <- mort2[mort2$type == "TLU", ]
+#mort2 <- na.omit(mort2)
+
+mort <- agrodata::data_ibli("marsabit_mortality.rds")
+mort2 <- mort[mort$type == "TLU", ]  # remote TLU for merging
+
+amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
+amort$mortality_rate <- (amort$loss / amort$stock_beginning) * 100
+```
+
+## Normal vs lognormal data treament 
+
+compute z-Score based data time series lengths. Z-score function.
+
+```{r zscore}
+zscore <- function(y){ 
+  (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
+}
+```
+
+Compute Z-scores.
+
+```{r n2}
+df1 <- merge(p, n, by = c("SUBLOCATION","year", "season")) #NOAA and CHIRPSs
+df1 <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zlograin=zscore(log(rainfall)), zrain=zscore(rainfall)))
+#MODIS
+df2 <- ungroup(mutate(group_by(m, SUBLOCATION, season), zmodis=zscore(modis)))
+
+```
+
+Check predictors distributions.
+
+NOAA
+
+```{r nn1, message=FALSE}
+library(MASS)
+x <- df1$noaa
+hist(x, breaks=30, prob=T, xlab="NOAA NDVI", main = "NOAA NDVI")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+```
+
+MODIS NDVI
+```{r nn2}
+x <- df2$modis
+hist(x, breaks=30, prob=T, xlab="MODIS NDVI", main = "MODIS NDVI")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+```
+
+CHIPRS
+```{r nn3}
+x <- df1$rainfall
+hist(x, breaks=40, prob=T, xlab="CHIPRS Rainfall", main = "Rainfall")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+```
+
+```{r nn4}
+x <- log(df1$rainfall)
+hist(x, breaks=40, prob=T, xlab="CHIPRS Rainfall", main = "Log transformed Rainfall")
+fit <- fitdistr(x, "normal")
+curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+```
+
+It seems the *log* transforms the rainfall data to a distribution close to normal. We will thus compute zScored log of transformed daily average rainfall and NDVI per season per sub-location.
+
+Merge mortality with NDVI and rainfall data.
+
+```{r d6}
+colnames(amort)[3] <- "SUBLOCATION"
+df1 <- merge(df1, amort, by=c("year", "season", "SUBLOCATION"))
+df2 <- merge(df2, amort, by=c("year", "season", "SUBLOCATION"))
+
+```
+
+### Effect rainfall data transformation on mortality predictions
+
+We will determine the effect rainfall data transformation on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and RMSE. For instance, a MAPE of (1) < 10 indicates highly accurate prediction, while (2) 10--0 good prediction, 3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
+
+MAPE, RMSE and R$^2$ functions are given as:
+
+```{r fxn2}
+rmse <- function(error){ return(sqrt(mean(error^2)))}
+MAPE <- function (y_pred, y_true){ mean(abs((y_true - y_pred)/y_true)) * 100 }
+R_square <- function(actual, predicted) { 1 - (sum((actual-predicted)^2)/sum((actual-mean(actual))^2))} 
+```
+
+Mortality modelling and prediction
+
+```{r d7}
+#Zscores from untransformed rainfall
+m_rz <- loess(mortality_rate ~ zrain , data=df1, control=loess.control(surface="direct"))
+e <- predict(m_rz, df1)
+R_square(df2$mortality_rate, e)
+rmse(df2$mortality_rate - e)
+#log Transformed rainfall
+m_rz <- loess(mortality_rate ~ zlograin , data=df1, control=loess.control(surface="direct"))
+e <- predict(m_rz, df1)
+R_square(df2$mortality_rate, e)
+rmse(df2$mortality_rate - e)
+
+```
+
+## Short versus long time series computed Z-scores
+
+Here we test the effect of shortening the time period of computing Z-scores from rainfall, NOAA AVHRR and MODIS data on mortality predictions. Therefore, we shorten the time series by leaving out a year up to the year 2008. This because we have observed mortality data from 2008--2015.
+
+```{r t1}
+
+#Impact of rainfal predictions based on shortening period of zScore calculations by 4 years starting from 1982
+df <- merge(p, n, by = c("SUBLOCATION","year", "season"))
+R2c <- RMSEc <- mapec <- R2b <- RMSEb <- mapeb <- R2 <- RMSE <- mape <- NULL
+year <- seq(1982,2008,1)
+i <- j <- 0
+for(y in year){
+  i=i+1 
+  df4 <- df[df$year >= y,]
+  df4 <- ungroup(mutate(group_by(df4, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
+  df4 <- merge(df4, amort, by=c("year", "season", "SUBLOCATION"))
+  #Rainfall
+  m_rz <- loess(mortality_rate ~ zrain , data=df4, control=loess.control(surface="direct"))
+  e <- predict(m_rz, df4)
+  R2[i] <- R_square(df4$mortality_rate, e)
+  RMSE[i] <- rmse(df4$mortality_rate - e)
+  mape[i] <- MAPE(df4$mortality_rate, e)
+  #NOAA
+  m_nz <- loess(mortality_rate ~ znoaa, data=df4, control=loess.control(surface="direct"))
+  e <- predict(m_nz, df4)
+  R2b[i] <- R_square(df4$mortality_rate, e)
+  RMSEb[i] <- rmse(df4$mortality_rate - e)
+  mapeb[i] <- MAPE(df4$mortality_rate, e)
+  #MODIS NDVI
+  if(y >=2001){
+    j=j+1 
+    df5 <- m[m$year >= y,]
+    df5 <- ungroup(mutate(group_by(df5, SUBLOCATION, season), zmodis=zscore(modis)))
+    df5 <- merge(df5, amort, by=c("year", "season", "SUBLOCATION"))
+    m_mz <- loess(mortality_rate ~ zmodis, data=df5, control=loess.control(surface="direct"))
+    e <- predict(m_mz, df5)
+    R2c[j] <- R_square(df5$mortality_rate, e)
+    RMSEc[j] <- rmse(df5$mortality_rate - e)
+    mapec[j] <- MAPE(df5$mortality_rate, e)
+  }
+  
+}
+
+plot(R2~year, pch=1, xaxt = "n", ylab=expression(R^2), ylim=c(0.2,0.35), main="Impact of Z-score computation period in mortality predictions")
+points(R2b~year, pch=3)
+points(R2c~year[year>=2001], pch=16)
+axis(side=1, at=year)
+legend("topleft", pch = c(1, 3, 16),  legend=c('Rainfall','NOAA NDVI', "MODIS NDVI"), title="Model type")
+
+```
+
+## Regime switching linear regression vs lowess
+
+Here we test a piecewise linear regression model against the lowess model. Piecewise will consider two climate regimes; those when conditions are below zero and above it.
+
+```{r p1}
+x=df1$znoaa
+y=df1$mortality_rate
+plot(x,y, pch=16)
+pcs1 <- lm(y ~ x*(x <= -1) + x*(x >= -1))
+summary(pcs1)
+coef <- summary(pcs1)
+intercept_a <- coef$coefficients[1,1] + coef$coefficients[2,1]
+slope_a <- (coef$coefficients[2,1] + coef$coefficients[3,1]) 
+curve(slope_a*x + intercept_a, add=T, from=-3, to=0)
+###2 not defined because of singularities CHALLANGEE
+```
+
+
+## Effect No zone vs group of sub-locations on MQS
+
+### Clustering zones
+
+Use kmeans to define/create 4 insurance zones based on spatial-temporal sublocation indices from NOAA NDVI, MODIS NDVI and rainfall indices per season per year.
+
+```{r z1}
+temp1 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="rainfall")
+temp2 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="noaa")
+temp3 <- reshape2::dcast(m, SUBLOCATION ~ year+season, value.var="modis")
+df_w <- merge(temp1,temp2, by=c("SUBLOCATION"))
+df_w <- merge(df_w, temp3, by=c("SUBLOCATION"))
+subs <- sort(unique(amort$SUBLOCATION))
+aoi <- subloc[subloc$sublocation %in% subs,]
+df_w <- df_w[df_w$SUBLOCATION %in% subs,]
+set.seed(99)
+#rf <-  randomForest(df_w[,-1],ntree=200,importance = TRUE)
+#Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method 
+r_kmn <- kmeans(df_w[,-1], centers = 3, iter.max = 500, nstart = 1, algorithm="Lloyd")
+# kmeans returns an object of class "kmeans"
+aoi$Zones <- r_kmn$cluster
+
+```
+
+Display the old and new zones
+
+```{r z2, message=FALSE}
+plot(aoi, "Zones", main= "NDVI+Rain")
+```
+
+Merge to current boundaries
+
+```{r zz2, message=FALSE}
+z_10 <- aggregate(aoi, by="Zones")
+plot(z_10, "Zones", border = "red", lwd = 2)
+legend("bottomleft", c("Original", "Clustered"), col=c("black","red"), lty = 1, lwd=2, title="Sublocation clusters")
+```
+
+### MQS test
+
+Prepare data for modelling and MQS
+
+```{r z3}
+#No zones defined
+data1 <- ungroup(mutate(group_by(df, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
+temp <- ungroup(mutate(group_by(m, SUBLOCATION, season), zmodis=zscore(modis)))
+data1 <- merge(data1, amort, by=c("SUBLOCATION", "season", "year"))
+data1 <- merge(data1, temp, by=c("SUBLOCATION", "season", "year"))
+#Add Zones
+names(aoi)[6] <- "SUBLOCATION"
+data1 <- merge(data1, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
+#Zones defined
+data2 <- merge(df, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
+data2 <- ungroup(mutate(group_by(data2, Zones, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
+temp <- merge(m, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
+temp <- ungroup(mutate(group_by(temp, Zones, season), zmodis=zscore(modis)))
+
+data2 <- merge(data2, amort, by=c("SUBLOCATION", "season", "year"))
+data2 <- merge(data2, temp, by=c("SUBLOCATION", "season", "year", "Zones"))
+
+```
+
+Predict livestock mortality using NDVI (NOAA and MODIS) and rainfall.
+
+```{r z4}
+#RAINFALL ONLY
+m_l <- loess(mortality_rate ~ zrain, data=data1, control=loess.control(surface="direct"))
+p <- predict(m_l, data1)
+r2 <- R_square(data1$mortality_rate, p)
+cat("Rainfall model R2 values is ", r2, "\n")
+#RAINFALL and NOAA NDVI
+m_l <- loess(mortality_rate ~ zrain + znoaa, data=data1, control=loess.control(surface="direct"))
+p <- predict(m_l, data1)
+r2 <- R_square(data1$mortality_rate, p)
+cat("Rainfall & NOAA NDVI model R2 values is ", r2, "\n")
+#RAINFALL, NOAA NDVI and MODIS NDVI
+m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data1, control=loess.control(surface="direct"))
+p <- predict(m_l, data1)
+r2 <- R_square(data1$mortality_rate, p)
+cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
+data1$predicted_mortality <- p
+
+#Predict mortality with defined zones
+data2 <- ungroup(mutate(group_by(data2, year, season, Zones),
+                       mortality_rate=mean(mortality_rate)))
+m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data2, control=loess.control(surface="direct"))
+p <- predict(m_l, data2)
+r2 <- R_square(data2$mortality_rate, p)
+cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
+data2$predicted_mortality <- p
+
+```
+
+Compute payouts — in units of monetary value of TLU — as the percentage difference between predicted mortality in TLU and a trigger (the 80th percentile). Those below the trigger get no payout. We assume that 1 TLU has a monetary equivalence of 1000$.
+
+```{r z5}
+trig <- quantile(data1$predicted_mortality, 0.80, na.rm=T)
+data1$payouts <- pmax(0, data1$predicted_mortality - trig)/100 * 1000
+#Case with defined zones
+trig <- quantile(data2$predicted_mortality, 0.80, na.rm=T)
+data2$payouts <- pmax(0, data2$predicted_mortality - trig)/100 * 1000
+
+```
+
+Assume an actuarially fair premium contract and farmers capital the percentage of herd remaining after loss (observed mortality) with 1TLU=1000$. 
+
+```{r z6}
+premium <- mean(data1$payouts)
+cat("The premium is $", premium,"\n",sep = "")
+data1$capital <- ((100 - data1$mortality_rate)/100) * 1000
+data1$income_noins <- data1$capital
+data1$income_ins   <- (data1$capital + data1$payouts) - premium
+#Case with defined zones
+premium <- mean(data2$payouts)
+data2$capital <- ((100 - data2$mortality_rate)/100) * 1000
+data2$income_noins <- data2$capital
+data2$income_ins   <- (data2$capital + data2$payouts) - premium
+
+```
+
+Let us now evaluate insurance welfare with insurance zones and without
+
+```{r mqs1}
+library(agro)
+test <- function(rho, df1){
+  ce_base <- ce_income(df1$income_noins, rho)
+  ce_ins  <- ce_income(df1$income_ins, rho)
+  mqs    <- ce_ins - ce_base
+  return(mqs)
+}
+zoned <- unzoned <- NULL
+
+rhos <- seq(0, 10, 1)
+for(z in 1:length(rhos)){
+  #CASE 1: NO ZONES
+  unzoned[z] <- test(rhos[z], data1)
+  #CASE 2: DEFINED INSURANCE ZONES
+  zoned[z]   <- test(rhos[z], data2)
+}
+
+#plot(zoned~rhos, ylab="Insurance benefit", xlab="Risk aversion", pch=16, col="blue")
+#points(unzoned~rhos,pch=16,col="red")
+#legend("bottomright",   legend=c("Unzoned",  "Zoned"), fill=c("red", "blue"), title=expression(paste("Region type")), bty = "n")
+#zoned
+#unzoned
+
+```
+
+
