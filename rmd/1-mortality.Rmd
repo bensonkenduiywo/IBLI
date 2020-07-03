@@ -142,7 +142,7 @@ table(cause$cause)
 
 Merge causes table with mortality data.
 
-We cnnot really merge these. For now, to make progress, let's just drop that
+We cannot really merge these. For now, to make progress, let's just drop that
 ```{r d3a}
 nrow(mort)
 nrow(cause)
@@ -183,56 +183,55 @@ Compute Z-scores.
 
 ```{r n2}
 df1 <- merge(p, n, by = c("SUBLOCATION","year", "season")) #NOAA and CHIRPSs
-df1 <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zlograin=zscore(log(rainfall)), zrain=zscore(rainfall)))
-#MODIS
-df2 <- ungroup(mutate(group_by(m, SUBLOCATION, season), zmodis=zscore(modis)))
+df1 <- merge(df1, m, by = c("SUBLOCATION","year", "season"), all.x=TRUE)
+
+dff <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall), zmodis=zscore(modis),  zlnoaa=zscore(log(noaa)), zlrain=zscore(log(rainfall)), zmodis=zscore(log(modis))))
 
 ```
 
 Check predictors distributions.
 
+```{r nn1, message=FALSE}
+library(MASS)
+distfun <- function(x, main="") {
+   x <- na.omit(x)
+   par(mfrow=c(1,2))
+   for (i in 1:2) {
+     if(i==2) x <- na.omit(log(x))
+     hist(x, breaks=30, prob=TRUE, xlab="index", main = ifelse(i==1, main, "log"))
+     fit <- fitdistr(x, "normal")
+     curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = "red", lwd=2, add = TRUE)
+   }
+}
+```
+
 NOAA
 
 ```{r nn1, message=FALSE}
-library(MASS)
-x <- df1$noaa
-hist(x, breaks=30, prob=T, xlab="NOAA NDVI", main = "NOAA NDVI")
-fit <- fitdistr(x, "normal")
-curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+distfun(na.omit(dff$noaa), main="NOAA")
 ```
+
 
 MODIS NDVI
 ```{r nn2}
-x <- df2$modis
-hist(x, breaks=30, prob=T, xlab="MODIS NDVI", main = "MODIS NDVI")
-fit <- fitdistr(x, "normal")
-curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+distfun(dff$modis, main="MODIS")
 ```
 
 CHIPRS
 ```{r nn3}
-x <- df1$rainfall
-hist(x, breaks=40, prob=T, xlab="CHIPRS Rainfall", main = "Rainfall")
-fit <- fitdistr(x, "normal")
-curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
+distfun(dff$rainfall)
 ```
 
-```{r nn4}
-x <- log(df1$rainfall)
-hist(x, breaks=40, prob=T, xlab="CHIPRS Rainfall", main = "Log transformed Rainfall")
-fit <- fitdistr(x, "normal")
-curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = 2, add = TRUE)
-```
 
 It seems the *log* transforms the rainfall data to a distribution close to normal. We will thus compute zScored log of transformed daily average rainfall and NDVI per season per sub-location.
+
+--- RH: This is especially true for rainfall, but I think that all three should be transformed ---- 
 
 Merge mortality with NDVI and rainfall data.
 
 ```{r d6}
 colnames(amort)[3] <- "SUBLOCATION"
-df1 <- merge(df1, amort, by=c("year", "season", "SUBLOCATION"))
-df2 <- merge(df2, amort, by=c("year", "season", "SUBLOCATION"))
-
+df1 <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
 ```
 
 ### Effect rainfall data transformation on mortality predictions
