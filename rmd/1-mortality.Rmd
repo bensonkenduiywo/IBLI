@@ -185,7 +185,7 @@ Compute Z-scores.
 df1 <- merge(p, n, by = c("SUBLOCATION","year", "season")) #NOAA and CHIRPSs
 df1 <- merge(df1, m, by = c("SUBLOCATION","year", "season"), all.x=TRUE)
 
-dff <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall), zmodis=zscore(modis),  zlnoaa=zscore(log(noaa)), zlrain=zscore(log(rainfall)), zmodis=zscore(log(modis))))
+dff <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall), zmodis=zscore(modis),  zlnoaa=zscore(log(noaa)), zlrain=zscore(log(rainfall)), zlmodis=zscore(log(modis))))
 
 ```
 
@@ -207,7 +207,7 @@ distfun <- function(x, main="") {
 
 NOAA
 
-```{r nn1, message=FALSE}
+```{r nn11, message=FALSE}
 distfun(na.omit(dff$noaa), main="NOAA")
 ```
 
@@ -234,7 +234,8 @@ colnames(amort)[3] <- "SUBLOCATION"
 dff <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
 ```
 
-### Effect rainfall data transformation on mortality predictions
+
+## Mortality modelling and prediction
 
 We will determine the effect rainfall data transformation on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and RMSE. For instance, a MAPE of (1) < 10 indicates highly accurate prediction, while (2) 10--0 good prediction, 3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
 
@@ -243,199 +244,95 @@ MAPE, RMSE and R$^2$ functions are given as:
 ```{r fxn2}
 rmse <- function(error){ return(sqrt(mean(error^2, na.rm=TRUE)))}
 MAPE <- function (y_pred, y_true){ mean(abs((y_true - y_pred)/y_true), na.rm=TRUE) * 100 }
-R_square <- function(actual, predicted) { 
+Rsq <- function(actual, predicted) { 
   d <- na.omit(data.frame(actual, predicted))
   1 - (sum((d$actual-d$predicted)^2)/ sum((d$actual - mean(d$actual))^2)) 
 } 
 ```
 
-Mortality modelling and prediction
-
-```{r d7}
-#Zscores from untransformed rainfall
-m_rz <- loess(mortality_rate ~ zrain , data=dff, control=loess.control(surface="direct"))
-e <- predict(m_rz, dff)
-R_square(dff$mortality_rate, e)
-rmse(dff$mortality_rate - e)
-x <- seq(-3, 3, 0.05)
-par(mfrow=c(1,2))
-plot(mortality_rate ~zrain, data=dff, las=2, main="rain")
-lines(x, predict(m_rz, data.frame(zrain=x)), lwd=2, col="red")
-
-#log Transformed rainfall
-m_rz <- loess(mortality_rate ~ zlrain , data=dff, control=loess.control(surface="direct"))
-e <- predict(m_rz, dff)
-R_square(dff$mortality_rate, e)
-rmse(dff$mortality_rate - e)
-plot(mortality_rate ~ zlrain, data=dff, main="log(rain)")
-lines(x, predict(m_rz, data.frame(zlrain=x)), lwd=2, col="red")
-
-```
 
 ## Regime switching linear regression vs lowess
 
-Here we test a piecewise linear regression model against the lowess model. Piecewise will consider two climate regimes; those when conditions are below zero and above it.
+Here we test a piecewise linear regression model against the lowess model. Piecewise will consider two  regimes; those when conditions are below zero and above it.
 
 ```{r p1}
-x=df1$znoaa
-y=df1$mortality_rate
-plot(x,y, pch=16)
+library(segmented)
+
+regfun <- function(x, y, main="") {
+  df <- na.omit(data.frame(x=x, y=y))
+  df0 <- df[df$x<0,]
+  df5 <- df[df$x < -0.5,]
+  test <- matrix(nrow=5,ncol=2)
+  colnames(test) <- c("r2", "RMSE")
+  rownames(test) <- c("lm", "lm0", "lm5", "seg", "loess")
+  plot(y~x, pch=16, main=main)
+
+  ml <- lm(y~x, data=df)
+  abline(ml, col="light blue", lwd=3, lty=2)  
+  ml2 <- lm(y~x, data=df0)
+  abline(ml2, col="blue", lwd=3, lty=3)  
+  ml5 <- lm(y~x, data=df5)
+  abline(ml5, col="dark blue", lwd=3, lty=4)  
+
+  sm <- segmented(ml, seg.Z = ~x, psi=0)
+  plot.segmented(sm, add=T, lwd=2, col="red") 
+  mz <- loess(y~x, df, control=loess.control(surface="direct"))
+  px=seq(-3, 3, .01)
+  lines(px, predict(mz, data.frame(x=px)), lwd=2, col="dark green")
+  #legend
+
+  e <- predict(ml)
+  test[1,] <- c(Rsq(df$y, e), rmse(df$y - e))
+  e <- predict(ml2)
+  test[2,] <- c(Rsq(df0$y, e), rmse(df0$y - e))
+  e <- predict(ml5)
+  test[3,] <- c(Rsq(df5$y, e), rmse(df5$y - e))
+  e <- predict(sm)
+  test[4,] <- c(Rsq(df$y, e), rmse(df$y - e))
+  e <- predict(mz)
+  test[5,] <- c(Rsq(df$y, e), rmse(df$y - e))
+  test
+}
+
+```
+
+
+```{r}
+regfun(dff$znoaa, dff$mortality_rate, "NOAA")
+```
+
+```{r}
+regfun(dff$zlnoaa, dff$mortality_rate, "log NOAA")
+```
+
+```{r}
+regfun(dff$zrain, dff$mortality_rate, "rain")
+```
+
+```{r}
+regfun(dff$zlrain, dff$mortality_rate, "log rain")
+```
+
+
+```{r}
+regfun(dff$zmodis, dff$mortality_rate, "modis")
+```
+
+```{r}
+regfun(dff$zlmodis, dff$mortality_rate, "log modis")
+```
+
+
+```{r}
+x=dff$znoaa
+y=dff$mortality_rate
 pcs1 <- lm(y ~ x*(x <= -1) + x*(x >= -1))
-summary(pcs1)
-coef <- summary(pcs1)
-intercept_a <- coef$coefficients[1,1] + coef$coefficients[2,1]
-slope_a <- (coef$coefficients[2,1] + coef$coefficients[3,1]) 
-curve(slope_a*x + intercept_a, add=T, from=-3, to=0)
+#summary(pcs1)
+coef <- summary(pcs1)$coefficients
+intercept_a <- coef[1,1] + coef[2,1]
+slope_a <- (coef[2,1] + coef[3,1]) 
+plot(y~x)
+curve(slope_a*x + intercept_a, add=T, from=-3, to=2, col="red")
 ###2 not defined because of singularities CHALLANGEE
 ```
-
-
-## Effect No zone vs group of sub-locations on MQS
-
-### Clustering zones
-
-Use kmeans to define/create 4 insurance zones based on spatial-temporal sublocation indices from NOAA NDVI, MODIS NDVI and rainfall indices per season per year.
-
-```{r z1}
-temp1 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="rainfall")
-temp2 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="noaa")
-temp3 <- reshape2::dcast(m, SUBLOCATION ~ year+season, value.var="modis")
-df_w <- merge(temp1,temp2, by=c("SUBLOCATION"))
-df_w <- merge(df_w, temp3, by=c("SUBLOCATION"))
-subs <- sort(unique(amort$SUBLOCATION))
-aoi <- subloc[subloc$sublocation %in% subs,]
-df_w <- df_w[df_w$SUBLOCATION %in% subs,]
-set.seed(99)
-#rf <-  randomForest(df_w[,-1],ntree=200,importance = TRUE)
-#Create 10 clusters using 500 iterations using 5 random sets from "Lloyd" method 
-r_kmn <- kmeans(df_w[,-1], centers = 3, iter.max = 500, nstart = 1, algorithm="Lloyd")
-# kmeans returns an object of class "kmeans"
-aoi$Zones <- r_kmn$cluster
-
-```
-
-Display the old and new zones
-
-```{r z2, message=FALSE}
-plot(aoi, "Zones", main= "NDVI+Rain")
-```
-
-Merge to current boundaries
-
-```{r zz2, message=FALSE}
-z_10 <- aggregate(aoi, by="Zones")
-plot(z_10, "Zones", border = "red", lwd = 2)
-legend("bottomleft", c("Original", "Clustered"), col=c("black","red"), lty = 1, lwd=2, title="Sublocation clusters")
-```
-
-### MQS test
-
-Prepare data for modelling and MQS
-
-```{r z3}
-#No zones defined
-data1 <- ungroup(mutate(group_by(df, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
-temp <- ungroup(mutate(group_by(m, SUBLOCATION, season), zmodis=zscore(modis)))
-data1 <- merge(data1, amort, by=c("SUBLOCATION", "season", "year"))
-data1 <- merge(data1, temp, by=c("SUBLOCATION", "season", "year"))
-#Add Zones
-names(aoi)[6] <- "SUBLOCATION"
-data1 <- merge(data1, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
-#Zones defined
-data2 <- merge(df, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
-data2 <- ungroup(mutate(group_by(data2, Zones, season), znoaa=zscore(noaa), zrain=zscore(rainfall)))
-temp <- merge(m, as.data.frame(aoi[,c("SUBLOCATION", "Zones")]), by="SUBLOCATION")
-temp <- ungroup(mutate(group_by(temp, Zones, season), zmodis=zscore(modis)))
-
-data2 <- merge(data2, amort, by=c("SUBLOCATION", "season", "year"))
-data2 <- merge(data2, temp, by=c("SUBLOCATION", "season", "year", "Zones"))
-
-```
-
-Predict livestock mortality using NDVI (NOAA and MODIS) and rainfall.
-
-```{r z4}
-#RAINFALL ONLY
-m_l <- loess(mortality_rate ~ zrain, data=data1, control=loess.control(surface="direct"))
-p <- predict(m_l, data1)
-r2 <- R_square(data1$mortality_rate, p)
-cat("Rainfall model R2 values is ", r2, "\n")
-#RAINFALL and NOAA NDVI
-m_l <- loess(mortality_rate ~ zrain + znoaa, data=data1, control=loess.control(surface="direct"))
-p <- predict(m_l, data1)
-r2 <- R_square(data1$mortality_rate, p)
-cat("Rainfall & NOAA NDVI model R2 values is ", r2, "\n")
-#RAINFALL, NOAA NDVI and MODIS NDVI
-m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data1, control=loess.control(surface="direct"))
-p <- predict(m_l, data1)
-r2 <- R_square(data1$mortality_rate, p)
-cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
-data1$predicted_mortality <- p
-
-#Predict mortality with defined zones
-data2 <- ungroup(mutate(group_by(data2, year, season, Zones),
-                       mortality_rate=mean(mortality_rate)))
-m_l <- loess(mortality_rate ~ zrain + znoaa + zmodis, data=data2, control=loess.control(surface="direct"))
-p <- predict(m_l, data2)
-r2 <- R_square(data2$mortality_rate, p)
-cat("Rainfall, NOAA NDVI & MODIS NDVI model R2 values is ", r2, "\n")
-data2$predicted_mortality <- p
-
-```
-
-Compute payouts — in units of monetary value of TLU — as the percentage difference between predicted mortality in TLU and a trigger (the 80th percentile). Those below the trigger get no payout. We assume that 1 TLU has a monetary equivalence of 1000$.
-
-```{r z5}
-trig <- quantile(data1$predicted_mortality, 0.80, na.rm=T)
-data1$payouts <- pmax(0, data1$predicted_mortality - trig)/100 * 1000
-#Case with defined zones
-trig <- quantile(data2$predicted_mortality, 0.80, na.rm=T)
-data2$payouts <- pmax(0, data2$predicted_mortality - trig)/100 * 1000
-
-```
-
-Assume an actuarially fair premium contract and farmers capital the percentage of herd remaining after loss (observed mortality) with 1TLU=1000$. 
-
-```{r z6}
-premium <- mean(data1$payouts)
-cat("The premium is $", premium,"\n",sep = "")
-data1$capital <- ((100 - data1$mortality_rate)/100) * 1000
-data1$income_noins <- data1$capital
-data1$income_ins   <- (data1$capital + data1$payouts) - premium
-#Case with defined zones
-premium <- mean(data2$payouts)
-data2$capital <- ((100 - data2$mortality_rate)/100) * 1000
-data2$income_noins <- data2$capital
-data2$income_ins   <- (data2$capital + data2$payouts) - premium
-
-```
-
-Let us now evaluate insurance welfare with insurance zones and without
-
-```{r mqs1}
-library(agro)
-test <- function(rho, df1){
-  ce_base <- ce_income(df1$income_noins, rho)
-  ce_ins  <- ce_income(df1$income_ins, rho)
-  mqs    <- ce_ins - ce_base
-  return(mqs)
-}
-zoned <- unzoned <- NULL
-
-rhos <- seq(0, 10, 1)
-for(z in 1:length(rhos)){
-  #CASE 1: NO ZONES
-  unzoned[z] <- test(rhos[z], data1)
-  #CASE 2: DEFINED INSURANCE ZONES
-  zoned[z]   <- test(rhos[z], data2)
-}
-
-#plot(zoned~rhos, ylab="Insurance benefit", xlab="Risk aversion", pch=16, col="blue")
-#points(unzoned~rhos,pch=16,col="red")
-#legend("bottomright",   legend=c("Unzoned",  "Zoned"), fill=c("red", "blue"), title=expression(paste("Region type")), bty = "n")
-#zoned
-#unzoned
-
-```
-
 
