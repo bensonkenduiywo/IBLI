@@ -2,7 +2,9 @@
 title: "Determination of insurance zones"
 author: "Benson Kenduiywo"
 date: "04/06/2020"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
