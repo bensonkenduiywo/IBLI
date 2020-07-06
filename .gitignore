@@ -6,3 +6,4 @@ test.R
 .Rhistory
 *.html
 *.pdf
+*.rds
