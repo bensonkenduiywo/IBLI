@@ -13,6 +13,7 @@ install the latest versions of raster, terra and agrodata (`remotes::install_git
 
 ```{r lib, message=FALSE}
 library(dplyr)
+library(sp)
 ```
 
 ## Data preparation
@@ -142,6 +143,7 @@ table(cause$cause)
 Merge causes table with mortality data.
 
 We cannot really merge these. For now, to make progress, let's just drop that
+
 ```{r d3a}
 nrow(mort)
 nrow(cause)
@@ -151,7 +153,7 @@ nrow(mortx)
 
 Compute mortality
 
-It might be of interest to do a seperatre model for Starvation/Drought
+It might be of interest to do a separate model for Starvation/Drought
 
 
 ```{r d5}
@@ -167,6 +169,39 @@ mort2 <- mort[mort$type == "TLU", ]  # remote TLU for merging
 amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
 amort$mortality_rate <- (amort$loss / amort$stock_beginning) * 100
 ```
+
+#### Spatial Variation of mortality
+
+Display the spatial variation on mortality.
+
+```{r sv1}
+temp <- aggregate(amort[, "mortality_rate", drop=FALSE], amort[, c("season", "sublocation"), drop=FALSE],mean, na.rm=T)
+#LRLD
+lr <- terra::merge(subloc, temp[temp$season=="LRLD", c("sublocation", "mortality_rate")], by= "sublocation")
+#SRSD
+sr <- terra::merge(subloc, temp[temp$season=="SRSD", c("sublocation", "mortality_rate")], by= "sublocation")
+
+cols <- heat.colors(length(lr$sublocation), rev=T)
+sp.label <- function(x, label) {list("sp.text", coordinates(as(x, 'Spatial')), label, cex=0.5, col="black")}
+NUMB.sp.label <- function(x) {sp.label(x, as.vector(x$sublocation))}
+make.NUMB.sp.label <- function(x) {do.call("list", NUMB.sp.label(x))}
+
+x11()
+#par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
+raster::spplot(lr, "mortality_rate", col.regions=cols,
+                    sp.layout = make.NUMB.sp.label(sr), 
+                    cex = 0.5,
+                    bg = "white", col="light grey", border="light grey",
+                    main="LRLD mean mortality")
+x11()
+raster::spplot(sr, "mortality_rate", col.regions=cols,
+                    sp.layout = make.NUMB.sp.label(sr), 
+                    cex = 0.5,
+                    bg = "white", col="light grey", border="light grey",
+                    main="SRSD mean mortality")
+
+```
+
 
 ## Normal vs lognormal data treament 
 
