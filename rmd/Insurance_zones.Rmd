@@ -338,7 +338,7 @@ for(z in 1:length(zones)){
   df2$n_pay <- pmax(0, df2$ndvi_mortality - n_trig)/100 * 1000
   #3.0 Evaluation
   #NDVI
-  df2$capital <- (100 - df2$mortality_rate) * 1000
+  df2$capital <- ((100 - df2$mortality_rate)/100 * 1000)
   n_premium <- mean(df2$n_pay) * (1 + markup)
   df_n <- data.frame(y_noins = df2$capital) # no insurance
   df_n$y_nomarkup <- (df2$capital + df2$n_pay) - mean(df2$n_pay) #no markup

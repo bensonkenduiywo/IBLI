@@ -299,7 +299,7 @@ Rsq <- function(actual, predicted) {
 
 ## Regime switching linear regression vs lowess
 
-Here we test the perfomance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. We assumme an actuarily fair premium.
+Here we test the performance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. We assumme an actuarily fair premium.
 
 ```{r p1}
 library(segmented)
