@@ -283,13 +283,10 @@ dff <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
 
 ## Mortality modelling and prediction
 
-We will determine the effect rainfall data transformation on mortality predictions based on R$^2$, Mean Absolute Prediction Error (MAPE) and Root Mean Square Error (RMSE). For instance, a MAPE of (1) < 10 indicates highly accurate prediction, while (2) 10--0 good prediction, 3) 20 -- reasonable prediction, and (4) > 50 inaccurate.
-
-MAPE, RMSE and R$^2$ functions are given as:
+We will determine the effect rainfall data transformation on mortality predictions based on R$^2$ and Root Mean Square Error (RMSE). RMSE and R$^2$ functions are given as:
 
 ```{r fxn2}
 rmse <- function(error){ return(sqrt(mean(error^2, na.rm=TRUE)))}
-MAPE <- function (y_pred, y_true){ mean(abs((y_true - y_pred)/y_true), na.rm=TRUE) * 100 }
 Rsq <- function(actual, predicted) { 
   d <- na.omit(data.frame(actual, predicted))
   1 - (sum((d$actual-d$predicted)^2)/ sum((d$actual - mean(d$actual))^2)) 
@@ -297,9 +294,9 @@ Rsq <- function(actual, predicted) {
 ```
 
 
-## Regime switching linear regression vs lowess
+## Regime switching linear regression and segmented regression
 
-Here we test the performance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. We assumme an actuarily fair premium.
+Here we test the performance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. We assume an actuarily fair premium.
 
 ```{r p1}
 library(segmented)
@@ -448,16 +445,5 @@ aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], 
 Mortality very high in LOIYANGALANI, LOGOLOGO and SAGANTE. In contrast it is Very low in KALACHA, TURBI, BUBISA (they should not take insurance). This is supported by observed mortalities as displayed in spatial variation maps previously. 
 
 
-```{r}
-#x=dff$znoaa
-#y=dff$mortality_rate
-#pcs1 <- lm(y ~ x*(x <= -1) + x*(x >= -1))
-#summary(pcs1)
-#coef <- summary(pcs1)$coefficients
-#intercept_a <- coef[1,1] + coef[2,1]
-#slope_a <- (coef[2,1] + coef[3,1]) 
-#plot(y~x)
-#curve(slope_a*x + intercept_a, add=T, from=-3, to=2, col="red")
-###2 not defined because of singularities CHALLANGEE
-```
+
 
