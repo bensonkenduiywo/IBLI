@@ -9,6 +9,7 @@ output: html_document
 
 Use kmeans to define/create 4 insurance zones based on spatial-temporal sublocation indices from NOAA NDVI, MODIS NDVI and rainfall indices per season per year.
 
+
 ```{r z1}
 temp1 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="rainfall")
 temp2 <- reshape2::dcast(df, SUBLOCATION ~ year+season, value.var="noaa")
