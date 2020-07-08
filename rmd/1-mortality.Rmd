@@ -3,8 +3,8 @@ title: "Experiments for ideas of 25 June 2020"
 author: "Benson Kenduiywo"
 date: "26/06/2020"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 editor_options:
   chunk_output_type: console
 ---
@@ -15,6 +15,7 @@ To run this you need to install the latest versions of terra, agro, and agrodata
 `remotes::install_github("reagro/agro")`
 
 ```{r lib, message=FALSE}
+rm(list = ls(all=TRUE))
 library(dplyr)
 library(sp)
 ```
@@ -193,7 +194,7 @@ make.NUMB.sp.label <- function(x) {do.call("list", NUMB.sp.label(x))}
 ```
 
 ```{r spplot1}
-#par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
+
 raster::spplot(lr, "mortality_rate", col.regions=cols,
                     sp.layout = make.NUMB.sp.label(sr), 
                     cex = 0.5,
@@ -210,13 +211,14 @@ raster::spplot(sr, "mortality_rate", col.regions=cols,
 ```
 
 ```{r spplot3}
-#par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
+
 raster::spplot(all, "mortality_rate", col.regions=cols,
                     sp.layout = make.NUMB.sp.label(all), 
                     cex = 0.5,
                     bg = "white", col="light grey", border="light grey",
                     main="Average mortality")
 ```
+Mortality very high in LOIYANGALANI, LOGOLOGO and SAGANTE. In contrast it is Very low in KALACHA, TURBI, BUBISA (they should not take insurance).
 
 Although there is variation by season, there seems to be support for grouping the large sublocations in the center and north east.
 
@@ -301,15 +303,13 @@ Rsq <- function(actual, predicted) {
 } 
 ```
 
-
-## Regime switching linear regression and segmented regression
+### Regime switching linear regression and segmented regression
 
 Here we test the performance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. We assume an actuarily fair premium.
 
 ```{r p1}
 library(segmented)
 #MQS function
-
 library(agro)
 mqs_test <- function(rho, df){
   ce_base <- ce_income(df$capital, rho)
@@ -406,10 +406,6 @@ trigs
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
 ```
 
-Mortality very high in LOIYANGALANI, LOGOLOGO and SAGANTE. In contrast it is Very low in KALACHA, TURBI, BUBISA (they should not take insurance). This is supported by observed mortalities as displayed in spatial variation maps previously. 
-
-
-
 NOAA NDVI.
 
 ```{r}
@@ -461,7 +457,39 @@ Save model for use in next steps.
 saveRDS(x, "regression_models.rds")
 ```
 
-How good would a perfect model be?
+#### Visualize the results
+
+```{r viz1, message=FALSE}
+library(ggplot2)
+#R2
+tt <- x[, c("group", "model","r2")]
+fig.r2 <- ggplot(aes(x=model, y=group, fill=r2), data=tt)
+fig.r2 <- fig.r2 + geom_tile() + scale_fill_gradient2(low="#D7191C", mid="white", high="#2C7BB6") + 
+  #   geom_text(aes(label=stars, color=value), size=8) + scale_colour_gradient(low="grey30", high="white", guide="none") +
+  geom_text(aes(label=round(r2,2)), color="black", size=5) + 
+  labs(y=NULL, x=NULL, fill=expression(R^2)) + 
+  theme_bw() + theme(axis.text=element_text(size=13,face="bold"),legend.text=element_text(size=13))
+x11()
+par(mfrow=c(1, 2), mar=c(15, 4, 2, 0.5)) #c(bottom, left, top, right)
+fig.r2
+#RMSE
+tt <- x[, c("group", "model","RMSE")]
+fig.rmse <- ggplot(aes(x=model, y=group, fill=RMSE), data=tt)
+fig.rmse <- fig.rmse + geom_tile() + scale_fill_gradient2(low="#D7191C", mid="white", high="#2C7BB6") + 
+  geom_text(aes(label=round(RMSE,2)), color="black", size=5) + 
+  labs(y=NULL, x=NULL, fill="RMSE") + 
+  theme_bw() + theme(axis.text=element_text(size=13,face="bold"),legend.text=element_text(size=13))
+x11()
+fig.rmse
+library(ggpubr)
+ggarrange(fig.r2, fig.rmse,
+                    labels = c("(a)", "(b)"),
+                    ncol = 2, nrow = 1)
+
+```
+
+
+#### How good would a perfect model be?
 
 ```{r}
 dff$capital <- (100 - dff$mortality_rate)/100 * 1000
@@ -469,7 +497,7 @@ dff$predicted_mortality <- dff$mortality_rate
 pf <- sapply(trigs, function(i) get_benefit(dff, i)) 
 ```
 
-These values can be used to compute a relative mqs score `rmqs`. That could be an interesging measure. 
+These values can be used to compute a relative mqs score `rmqs`. That could be an interesting measure. 
 
 ```{r}
 xx <- x
