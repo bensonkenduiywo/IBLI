@@ -2,8 +2,10 @@
 title: "Experiments for ideas of 25 June 2020"
 author: "Benson Kenduiywo"
 date: "26/06/2020"
-output: html_document
-editor_options: 
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
   chunk_output_type: console
 ---
 
@@ -398,7 +400,7 @@ Possible pay-out triggers
 
 ```{r}
 mort <- na.omit(dff$mortality_rate)
-trigs <- round(quantile(mort, seq(0.6, 0.9, 0.05)), 1)
+trigs <- round(quantile(mort, seq(0.6, 0.95, 0.05)), 1)
 trigs
 
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
@@ -459,6 +461,20 @@ Save model for use in next steps.
 saveRDS(x, "regression_models.rds")
 ```
 
+How good would a perfect model be?
 
+```{r}
+dff$capital <- (100 - dff$mortality_rate)/100 * 1000
+dff$predicted_mortality <- dff$mortality_rate
+pf <- sapply(trigs, function(i) get_benefit(dff, i)) 
+```
 
+These values can be used to compute a relative mqs score `rmqs`. That could be an interesging measure. 
+
+```{r}
+xx <- x
+xx[,7:ncol(xx)] <- xx[,7:ncol(xx)] / rep(pf, each=nrow(xx))
+# highest relative scores
+apply(xx[,7:ncol(xx)], 2, max)
+```
 
