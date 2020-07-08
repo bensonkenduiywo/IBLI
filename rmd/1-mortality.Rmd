@@ -9,7 +9,8 @@ editor_options:
 
 ## Packages
 
-install the latest versions of raster, terra and agrodata (`remotes::install_github("reagro/agrodata")`) in that order. 
+To run this you need to install the latest versions of terra, agro, and agrodata `remotes::install_github("reagro/agrodata")`.
+`remotes::install_github("reagro/agro")`
 
 ```{r lib, message=FALSE}
 library(dplyr)
@@ -172,7 +173,7 @@ amort$mortality_rate <- (amort$loss / amort$stock_beginning) * 100
 
 #### Spatial Variation of mortality
 
-Display the spatial variation on mortality.
+Display the spatial variation in mortality.
 
 ```{r sv1}
 temp <- aggregate(amort[, "mortality_rate", drop=FALSE], amort[, c("season", "sublocation"), drop=FALSE],mean, na.rm=T)
@@ -187,40 +188,45 @@ cols <- heat.colors(length(lr$sublocation), rev=T)
 sp.label <- function(x, label) {list("sp.text", coordinates(as(x, 'Spatial')), label, cex=0.5, col="black")}
 NUMB.sp.label <- function(x) {sp.label(x, as.vector(x$sublocation))}
 make.NUMB.sp.label <- function(x) {do.call("list", NUMB.sp.label(x))}
+```
 
-x11()
+```{r spplot1}
 #par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
 raster::spplot(lr, "mortality_rate", col.regions=cols,
                     sp.layout = make.NUMB.sp.label(sr), 
                     cex = 0.5,
                     bg = "white", col="light grey", border="light grey",
                     main="LRLD average mortality")
-x11()
+```
+
+```{r spplot2}
 raster::spplot(sr, "mortality_rate", col.regions=cols,
                     sp.layout = make.NUMB.sp.label(sr), 
                     cex = 0.5,
                     bg = "white", col="light grey", border="light grey",
                     main="SRSD average mortality")
+```
 
-x11()
+```{r spplot3}
 #par(mfrow=c(1, 2), mar=c(1, 1, 2, 2)) #c(bottom, left, top, right)
 raster::spplot(all, "mortality_rate", col.regions=cols,
                     sp.layout = make.NUMB.sp.label(all), 
                     cex = 0.5,
                     bg = "white", col="light grey", border="light grey",
                     main="Average mortality")
-
-
 ```
 
+Although there is variation by season, there seems to be support for grouping the large sublocations in the center and north east.
 
 ## Normal vs lognormal data treament 
 
-compute z-Score based data time series lengths. Z-score function.
-
+Compute z-Score based data time series lengths. Z-score function.
+,
 ```{r zscore}
-zscore <- function(y){ 
-  (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
+zscore <- function(y, log=FALSE){
+    # +.05 to avoid NA from log(x) where x <= 0
+    if (log) y <- log(y+.05)
+    (y - mean(y, na.rm=TRUE) ) / (sd(y, na.rm=TRUE))
 }
 ```
 
@@ -231,7 +237,7 @@ Compute rainfall and NDVI Z-scores per season per sublocation.
 df1 <- merge(p, n, by = c("SUBLOCATION","year", "season")) #NOAA and CHIRPSs
 df1 <- merge(df1, m, by = c("SUBLOCATION","year", "season"), all.x=TRUE)#Add modis data
 #Compute Z-scores per season per sublocation
-dff <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall), zmodis=zscore(modis),  zlnoaa=zscore(log(noaa)), zlrain=zscore(log(rainfall)), zlmodis=zscore(log(modis))))
+dff <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zrain=zscore(rainfall), zmodis=zscore(modis),  zlnoaa=zscore(noaa, TRUE), zlrain=zscore(rainfall, TRUE), zlmodis=zscore(modis, TRUE)))
 
 ```
 
@@ -243,7 +249,7 @@ distfun <- function(x, main="") {
    x <- na.omit(x)
    par(mfrow=c(1,2))
    for (i in 1:2) {
-     if(i==2) x <- na.omit(log(x))
+     if(i==2) x <- na.omit(log(x+0.05))
      hist(x, breaks=30, prob=TRUE, xlab="index", main = ifelse(i==1, main, "log"))
      fit <- fitdistr(x, "normal")
      curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = "red", lwd=2, add = TRUE)
@@ -266,7 +272,7 @@ distfun(dff$modis, main="MODIS")
 CHIRPS
 
 ```{r nn3}
-X11()
+
 distfun(dff$rainfall, main="Rainfall")
 ```
 
@@ -302,36 +308,37 @@ Here we test the performance of piecewise linear regression model and segmented 
 library(segmented)
 #MQS function
 
-rho <- 1.5
-
 library(agro)
 mqs_test <- function(rho, df){
   ce_base <- ce_income(df$capital, rho)
   ce_ins  <- ce_income(df$income_ins, rho)
-  mqs    <- ce_ins - ce_base
-  return(mqs)
+  ce_ins - ce_base
 }
 
-get_benefit <- function(df, rho){
+get_benefit <- function(df, trigger, rho=1.5) {
   #Define trigger
   data <- na.omit(df)
-  trig <- quantile(data$predicted_mortality, 0.80, na.rm=T)
+  #trigger <- quantile(data$predicted_mortality, 0.80, na.rm=T)
   #Compute payouts
-  data$payouts <- pmax(0, data$predicted_mortality - trig)/100 * 1000
+  data$payouts <- pmax(0, data$predicted_mortality - trigger)/100 * 1000
   #Compute Actuarily fair premiumL Premium with no mark up
   premium <- mean(data$payouts, na.rm=T)
+  # markup 25%
+  premium <- 1.25 * premium
   #Compute income with insurance
   data$income_ins   <- (data$capital + data$payouts) - premium
   #Determine insurance benefit
   mqs_test(rho, data)
 }
 
-regfun <- function(x, y, main="") {
+regfun <- function(x, y, triggers, main="") {
   df <- na.omit(data.frame(x=x, y=y))
   df0 <- df[df$x<0,]
   df5 <- df[df$x < -0.5,]
-  test <- data.frame(matrix(nrow=4,ncol=7))
-  colnames(test) <- c("group", "model", "r2", "RMSE", "intercept", "slope","Benefit($)")
+  test <- data.frame(matrix(nrow=4, ncol=6+length(triggers)))
+  mqsn <- paste0("mqs", triggers)
+  nt <- length(triggers)
+  colnames(test) <- c("group", "model", "r2", "RMSE", "intercept", "slope", mqsn)
   test$group <- main
   test$model <- c("lm", "lm0", "lm5", "seg")
   plot(y~x, pch=16, main=main)
@@ -349,27 +356,30 @@ regfun <- function(x, y, main="") {
   df$capital <- (100 - df$y)/100 * 1000
   e <- predict(ml)
   df$predicted_mortality <- e
-  test[1,7] <- get_benefit(df, rho)
+  
+  for (i in 1:nt) test[1,i+6] <- get_benefit(df, triggers[i])
   test[1,3:4] <- c(Rsq(df$y, e), rmse(df$y - e))
   test[1,5:6] <- coefficients(ml)
   
   e <- predict(ml2)
   df$predicted_mortality <- NA
   df$predicted_mortality[df$x<0] <- e
-  test[2,7] <- get_benefit(df, rho)
+  for (i in 1:nt) test[2,i+6] <- get_benefit(df, triggers[i])
+
   test[2,3:4] <- c(Rsq(df0$y, e), rmse(df0$y - e))
   test[2,5:6] <- coefficients(ml2)
   
   e <- predict(ml5)
   df$predicted_mortality <- NA
   df$predicted_mortality[df$x < -0.5] <- e
-  test[3,7] <- get_benefit(df, rho)
+  for (i in 1:nt) test[3,i+6] <- get_benefit(df, triggers[i])
   test[3,3:4] <- c(Rsq(df5$y, e), rmse(df5$y - e))
   test[3,5:6] <- coefficients(ml5)
   
   e <- predict(sm)
   df$predicted_mortality <- e
-  test[4,7] <- get_benefit(df, rho)
+  for (i in 1:nt) test[4,i+6] <- get_benefit(df, triggers[i])
+  
   test[4,3:4] <- c(Rsq(df$y, e), rmse(df$y - e))
   segslope <- slope(sm)$x[1]
   bx = sm$psi[2]
@@ -383,46 +393,62 @@ regfun <- function(x, y, main="") {
 
 ```
 
+
+Possible pay-out triggers
+
+```{r}
+mort <- na.omit(dff$mortality_rate)
+trigs <- round(quantile(mort, seq(0.6, 0.9, 0.05)), 1)
+trigs
+
+aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
+```
+
+Mortality very high in LOIYANGALANI, LOGOLOGO and SAGANTE. In contrast it is Very low in KALACHA, TURBI, BUBISA (they should not take insurance). This is supported by observed mortalities as displayed in spatial variation maps previously. 
+
+
+
 NOAA NDVI.
 
 ```{r}
 res <- list()
-res$noaa <- regfun(dff$znoaa, dff$mortality_rate, "NOAA")
+res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "NOAA")
 ```
 
 Log transformed NOAA NDVI.
 
 ```{r}
-res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, "log NOAA")
+res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "log NOAA")
 ```
 
 CHIRPS rainfall.
 
 ```{r}
-res$rain <- regfun(dff$zrain, dff$mortality_rate, "rain")
+res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "rain")
 ```
 
 Log transformed CHIRPS rainfall.
 
 ```{r}
-res$lograin <- regfun(dff$zlrain, dff$mortality_rate, "log rain")
+res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "log rain")
 ```
 
 MODIS NDVI.
 
 ```{r}
-res$modis <- regfun(dff$zmodis, dff$mortality_rate, "modis")
+res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "modis")
 ```
 
 Log transformed MODIS NDVI.
 
 ```{r}
-res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, "log modis")
+res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "log modis")
 ```
 
 ```{r}
 x <- do.call(rbind, res)
 rownames(x) <- NULL
+x[,3:ncol(x)] <- lapply(x[,3:ncol(x)], function(i) round(i,3))
 x
 ```
 
@@ -432,17 +458,6 @@ Save model for use in next steps.
 #x <- x[x$model != "loess", ]
 saveRDS(x, "regression_models.rds")
 ```
-
-Possible pay-out triggers
-
-```{r}
-mort <- na.omit(dff$mortality_rate)
-quantile(mort, c(0.75, 0.8))
-
-aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
-```
-
-Mortality very high in LOIYANGALANI, LOGOLOGO and SAGANTE. In contrast it is Very low in KALACHA, TURBI, BUBISA (they should not take insurance). This is supported by observed mortalities as displayed in spatial variation maps previously. 
 
 
 
