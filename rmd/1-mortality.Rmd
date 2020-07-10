@@ -218,6 +218,7 @@ raster::spplot(all, "mortality_rate", col.regions=cols,
                     bg = "white", col="light grey", border="light grey",
                     main="Average mortality")
 ```
+
 Mortality very high in LOIYANGALANI, LOGOLOGO and SAGANTE. In contrast it is Very low in KALACHA, TURBI, BUBISA (they should not take insurance).
 
 Although there is variation by season, there seems to be support for grouping the large sublocations in the center and north east.
@@ -264,6 +265,7 @@ distfun <- function(x, main="") {
 NOAA
 
 ```{r nn11, message=FALSE}
+
 distfun(na.omit(dff$noaa), main="NOAA")
 ```
 
@@ -343,7 +345,7 @@ regfun <- function(x, y, triggers, main="") {
   colnames(test) <- c("group", "model", "r2", "RMSE", "intercept", "slope", mqsn)
   test$group <- main
   test$model <- c("lm", "lm0", "lm5", "seg")
-  plot(y~x, pch=16, main=main)
+  plot(y~x, pch=16, main=main, cex=0.8)
 
   ml <- lm(y~x, data=df)
   abline(ml, col="magenta", lwd=3, lty=2)  
@@ -389,7 +391,7 @@ regfun <- function(x, y, triggers, main="") {
   intercpt = segslope * -bx + by
   test[4,5:6] <- c(intercpt, segslope)
   
-  legend("topright", c("Linear", "Piecewise x < 0", "Piecewise x < -0.5", "Segmented"), col=c("magenta", "blue", "green", "red"), lwd=c(3,3,3,2), lty=c(2,3,4,1), title="Regression model")
+  legend("topright", c("lm", "lm0", "lm5", "seg"), col=c("magenta", "blue", "green", "red"), lwd=c(3,3,3,2), lty=c(2,3,4,1), title="Model", bty="n")
   test
 }
 
@@ -398,7 +400,7 @@ regfun <- function(x, y, triggers, main="") {
 
 Possible pay-out triggers
 
-```{r}
+```{r p2}
 mort <- na.omit(dff$mortality_rate)
 trigs <- round(quantile(mort, seq(0.6, 0.95, 0.05)), 1)
 trigs
@@ -406,44 +408,36 @@ trigs
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
 ```
 
-NOAA NDVI.
+NOAA NDVI and Log transformed NOAA NDVI.
 
-```{r}
+```{r p3}
+x11()
+par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
 res <- list()
-res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "NOAA")
+res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "Z-NOAA")
+res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "Z-log NOAA")
 ```
 
-Log transformed NOAA NDVI.
 
-```{r}
-res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "log NOAA")
+CHIRPS rainfall and log transformed CHIRPS rainfall.
+
+```{r p4}
+x11()
+par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
+res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "Z-rain")
+res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "Z-log rain")
 ```
 
-CHIRPS rainfall.
+MODIS NDVI and log transformed MODIS NDVI.
 
-```{r}
-res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "rain")
+```{r p4}
+x11()
+par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
+res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "Z-MODIS")
+res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "Z-log MODIS")
 ```
 
-Log transformed CHIRPS rainfall.
-
-```{r}
-res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "log rain")
-```
-
-MODIS NDVI.
-
-```{r}
-res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "modis")
-```
-
-Log transformed MODIS NDVI.
-
-```{r}
-res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "log modis")
-```
-
-```{r}
+```{r p4}
 x <- do.call(rbind, res)
 rownames(x) <- NULL
 x[,3:ncol(x)] <- lapply(x[,3:ncol(x)], function(i) round(i,3))
@@ -459,6 +453,8 @@ saveRDS(x, "regression_models.rds")
 
 #### Visualize the results
 
+First display the quality measures for different models and data treatment.
+
 ```{r viz1, message=FALSE}
 library(ggplot2)
 #R2
@@ -470,7 +466,6 @@ fig.r2 <- fig.r2 + geom_tile() + scale_fill_gradient2(low="#D7191C", mid="white"
   labs(y=NULL, x=NULL, fill=expression(R^2)) + 
   theme_bw() + theme(axis.text=element_text(size=13,face="bold"),legend.text=element_text(size=13))
 x11()
-par(mfrow=c(1, 2), mar=c(15, 4, 2, 0.5)) #c(bottom, left, top, right)
 fig.r2
 #RMSE
 tt <- x[, c("group", "model","RMSE")]
@@ -482,9 +477,15 @@ fig.rmse <- fig.rmse + geom_tile() + scale_fill_gradient2(low="#D7191C", mid="wh
 x11()
 fig.rmse
 library(ggpubr)
-ggarrange(fig.r2, fig.rmse,
-                    labels = c("(a)", "(b)"),
-                    ncol = 2, nrow = 1)
+ggarrange(fig.r2, fig.rmse, labels = c("(a)", "(b)"),
+          ncol = 1, nrow = 2, widths = c(0.5, 0.5,0.5,0.5))
+```
+
+Display the welfare of the farmer based on different data treatments and regression models.
+
+
+```{r viz2, message=FALSE}
+tt <- x[, c("group", "model","mqs10.3", "mqs12.6", "mqs13.9", "mqs15.8", "mqs17.6", "mqs23", "mqs27.6", "mqs41.5" )]
 
 ```
 
