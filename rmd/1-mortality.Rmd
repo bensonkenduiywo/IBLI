@@ -402,7 +402,7 @@ Possible pay-out triggers
 
 ```{r p2}
 mort <- na.omit(dff$mortality_rate)
-trigs <- round(quantile(mort, seq(0.6, 0.95, 0.05)), 1)
+trigs <- round(quantile(mort, seq(0.6, 0.9, 0.1)), 1)
 trigs
 
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
@@ -485,8 +485,25 @@ Display the welfare of the farmer based on different data treatments and regress
 
 
 ```{r viz2, message=FALSE}
-tt <- x[, c("group", "model","mqs10.3", "mqs12.6", "mqs13.9", "mqs15.8", "mqs17.6", "mqs23", "mqs27.6", "mqs41.5" )]
-
+library(ggplot2)
+library(reshape2)
+a <- names(x)
+b <- c("r2","RMSE","intercept","slope")
+tt <- x[,!a %in% b]
+tt <- melt(tt, id=c("group", "model")) 
+tt$variable = as.integer(gsub("mqs","",tt$variable))
+x11()
+ggplot() + 
+  geom_point(data = tt, aes(y = value, x = group, size = variable, color = model)) +
+  scale_y_continuous(breaks = seq(0, 16, by = 4)) +
+  scale_color_manual(values=c('red', 'green', 'blue', 'magenta')) +
+  scale_size_continuous(breaks=as.integer(trigs)) +
+  labs(x="Data", y="Insurance benefit") + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10),
+        axis.title=element_text(size=11,face="bold"), legend.text=element_text(size=11)) +
+  guides(color=guide_legend("Model"), size=guide_legend("Trigger"))
+  
 ```
 
 
