@@ -498,14 +498,13 @@ ggplot() +
   scale_y_continuous(breaks = seq(0, 16, by = 4)) +
   scale_color_manual(values=c('red', 'green', 'blue', 'magenta')) +
   scale_size_continuous(breaks=as.integer(trigs)) +
-  labs(x="Data", y="Insurance benefit") + 
+  labs(x="Data", y="Insurance benefit ($)") + 
   theme_bw() +
   theme(axis.text=element_text(size=10),
         axis.title=element_text(size=11,face="bold"), legend.text=element_text(size=11)) +
   guides(color=guide_legend("Model"), size=guide_legend("Trigger"))
   
 ```
-
 
 #### How good would a perfect model be?
 
