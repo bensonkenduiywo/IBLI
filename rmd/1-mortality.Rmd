@@ -328,7 +328,7 @@ get_benefit <- function(df, trigger, rho=1.5) {
   #Compute Actuarily fair premiumL Premium with no mark up
   premium <- mean(data$payouts, na.rm=T)
   # markup 25%
-  premium <- 1.25 * premium
+  #premium <- 1.25 * premium
   #Compute income with insurance
   data$income_ins   <- (data$capital + data$payouts) - premium
   #Determine insurance benefit
@@ -430,14 +430,14 @@ res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "Z-log rain")
 
 MODIS NDVI and log transformed MODIS NDVI.
 
-```{r p4}
+```{r p5}
 x11()
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
 res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "Z-MODIS")
 res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "Z-log MODIS")
 ```
 
-```{r p4}
+```{r p6}
 x <- do.call(rbind, res)
 rownames(x) <- NULL
 x[,3:ncol(x)] <- lapply(x[,3:ncol(x)], function(i) round(i,3))
@@ -446,7 +446,7 @@ x
 
 Save model for use in next steps.
 
-```{r}
+```{r p7}
 #x <- x[x$model != "loess", ]
 saveRDS(x, "regression_models.rds")
 ```
