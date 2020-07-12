@@ -1,0 +1,59 @@
+---
+title: "IBLI visualisation"
+output: pdf_document
+editor_options:
+  chunk_output_type: console
+---
+
+## read data
+
+```{r}
+x <- readRDS("reg_RIB.rds")
+z <- readRDS("perfect.rds")
+```
+
+The best threshold is 80%, or mqs23. Let's first just look at that one
+
+```{r}
+z
+apply(x[, 7:ncol(x)], 2, max)
+```
+
+```{r}
+tv <- "23"
+tvar <- paste0("mqs", tv)
+vars <- c("group", "model", "r2", tvar)
+d <- x[, vars]
+colnames(d) <- gsub(tvar, "RIB", colnames(d))
+head(d)
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+boxplot(r2~model, data=d)
+boxplot(RIB~model, data=d)
+boxplot(r2~group, data=d)
+boxplot(RIB~group, data=d)
+```
+
+
+```{r}
+group.which.max <- function(var) {
+  g <- lapply(split(d, d$group), function(i) i[which.max(i[[var]]), ]) 
+  do.call(rbind, g)
+}
+s1 <- group.which.max("r2")
+s2 <- group.which.max("RIB")
+s <- cbind(s1[,1:3], s2[,c(2,4)])
+rownames(s) <- NULL
+s
+s[order(s$r2), ]
+plot(s$r2, s$RIB)
+```
+
+
+```{r}
+plot(d[,3:4], pch=20, col="red") #, xlim=c(0,1), ylim=c(0,1))
+```
+

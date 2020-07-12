@@ -7,9 +7,6 @@ editor_options:
 
 ## Packages
 
-To run this you need to install the latest versions of terra, agro, and agrodata `remotes::install_github("reagro/agrodata")`.
-`remotes::install_github("reagro/agro")`
-
 ```{r lib, message=FALSE}
 rm(list = ls(all=TRUE))
 library(dplyr)
@@ -293,8 +290,20 @@ dff <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
 
 We will determine the effect rainfall data transformation on mortality predictions based on R$^2$ and Root Mean Square Error (RMSE). RMSE and R$^2$ functions are given as:
 
+This is the relative RMSE (relative to a null model. that is more informative)
 ```{r fxn2}
-rmse <- function(error){ return(sqrt(mean(error^2, na.rm=TRUE)))}
+rrmse <- function(observed, predicted){ 
+  error <- observed - predicted
+  rmse <- sqrt(mean(error^2, na.rm=TRUE))
+  nullerror <- observed - mean(observed)
+  nullrmse <- sqrt(mean(nullerror^2, na.rm=TRUE))
+  (nullrmse - rmse) / nullrmse
+}
+```
+
+I now see that this is actually the same as the above! 
+
+```{r fxn22}
 Rsq <- function(actual, predicted) { 
   d <- na.omit(data.frame(actual, predicted))
   1 - (sum((d$actual-d$predicted)^2)/ sum((d$actual - mean(d$actual))^2)) 
@@ -303,7 +312,7 @@ Rsq <- function(actual, predicted) {
 
 ### Regime switching linear regression and segmented regression
 
-Here we test the performance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. We assume an actuarily fair premium.
+Here we test the performance of piecewise linear regression model and segmented regression in predicting livestock mortality. Piecewise will consider two  regimes; those when conditions are below zero and -0.5. Basically, we care more on the extreme cases because that is when farmers should receive compensation. We also evaluate farmers welfare benefit based on MQS with the assumption that 1TLU=1000$ and that each farmer has 1TLU before any shocks. 
 
 ```{r p1}
 library(segmented)
@@ -330,7 +339,12 @@ get_benefit <- function(df, trigger, rho=1.5) {
   #Determine insurance benefit
   mqs_test(rho, data)
 }
+```
 
+
+Regression
+
+```{r p11}
 regfun <- function(x, y, triggers, main="") {
   df <- na.omit(data.frame(x=x, y=y))
   df0 <- df[df$x<0,]
@@ -358,7 +372,7 @@ regfun <- function(x, y, triggers, main="") {
   df$predicted_mortality <- e
   
   for (i in 1:nt) test[1,i+6] <- get_benefit(df, triggers[i])
-  test[1,3:4] <- c(Rsq(df$y, e), rmse(df$y - e))
+  test[1,3:4] <- c(Rsq(df$y, e), rrmse(df$y, e))
   test[1,5:6] <- coefficients(ml)
   
   e <- predict(ml2)
@@ -366,28 +380,28 @@ regfun <- function(x, y, triggers, main="") {
   df$predicted_mortality[df$x<0] <- e
   for (i in 1:nt) test[2,i+6] <- get_benefit(df, triggers[i])
 
-  test[2,3:4] <- c(Rsq(df0$y, e), rmse(df0$y - e))
+  test[2,3:4] <- c(Rsq(df0$y, e), rrmse(df0$y, e))
   test[2,5:6] <- coefficients(ml2)
   
   e <- predict(ml5)
   df$predicted_mortality <- NA
   df$predicted_mortality[df$x < -0.5] <- e
   for (i in 1:nt) test[3,i+6] <- get_benefit(df, triggers[i])
-  test[3,3:4] <- c(Rsq(df5$y, e), rmse(df5$y - e))
+  test[3,3:4] <- c(Rsq(df5$y, e), rrmse(df5$y, e))
   test[3,5:6] <- coefficients(ml5)
   
   e <- predict(sm)
   df$predicted_mortality <- e
   for (i in 1:nt) test[4,i+6] <- get_benefit(df, triggers[i])
   
-  test[4,3:4] <- c(Rsq(df$y, e), rmse(df$y - e))
+  test[4,3:4] <- c(Rsq(df$y, e), rrmse(df$y, e))
   segslope <- slope(sm)$x[1]
   bx = sm$psi[2]
   by = predict(sm, data.frame(x=-0.92))
   intercpt = segslope * -bx + by
   test[4,5:6] <- c(intercpt, segslope)
   
-  legend("topright", c("lm", "lm0", "lm5", "seg"), col=c("magenta", "blue", "green", "red"), lwd=c(3,3,3,2), lty=c(2,3,4,1), title="Model", bty="n")
+  legend("topright", c("lm", "lm0", "lm5", "sm"), col=c("magenta", "blue", "green", "red"), lwd=c(3,3,3,2), lty=c(2,3,4,1), title="Model", bty="n")
   test
 }
 
@@ -409,8 +423,8 @@ NOAA NDVI and Log transformed NOAA NDVI.
 ```{r p3}
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
 res <- list()
-res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "Z-NOAA")
-res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "Z-log NOAA")
+res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "NO")
+res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "logNO")
 ```
 
 
@@ -419,8 +433,8 @@ CHIRPS rainfall and log transformed CHIRPS rainfall.
 ```{r p4}
 
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
-res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "Z-rain")
-res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "Z-log rain")
+res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "RN")
+res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "logRN")
 ```
 
 MODIS NDVI and log transformed MODIS NDVI.
@@ -428,8 +442,8 @@ MODIS NDVI and log transformed MODIS NDVI.
 ```{r p5}
 
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
-res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "Z-MODIS")
-res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "Z-log MODIS")
+res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "MD")
+res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "logMD")
 ```
 
 ```{r p6}
@@ -452,8 +466,10 @@ Compute a relative IB score `RIB`.
 
 ```{r}
 xx <- x
-xx[,7:ncol(xx)] <- xx[,7:ncol(xx)] / rep(pf, each=nrow(xx))
-# highest relative scores
+for (i in 7:ncol(x)) {
+  xx[,i] <- x[,i] / pf[i-6]
+}
+
 apply(xx[,7:ncol(xx)], 2, max)
 ```
 
@@ -468,3 +484,5 @@ saveRDS(x,  "regression_models.rds")
 saveRDS(pf, "perfect.rds")
 saveRDS(xx, "reg_RIB.rds")
 ```
+
+

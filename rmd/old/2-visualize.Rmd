@@ -1,3 +1,10 @@
+---
+title: "IBLI visualisation"
+output: pdf_document
+editor_options:
+  chunk_output_type: console
+---
+
 
 #### Visualize the results
 
