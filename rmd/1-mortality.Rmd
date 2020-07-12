@@ -1,10 +1,6 @@
 ---
-title: "Experiments for ideas of 25 June 2020"
-author: "Benson Kenduiywo"
-date: "26/06/2020"
-output:
-  html_document: default
-  pdf_document: default
+title: "IBLI evaluation"
+output: pdf_document
 editor_options:
   chunk_output_type: console
 ---
@@ -17,7 +13,7 @@ To run this you need to install the latest versions of terra, agro, and agrodata
 ```{r lib, message=FALSE}
 rm(list = ls(all=TRUE))
 library(dplyr)
-library(sp)
+library(raster)
 ```
 
 ## Data preparation
@@ -328,7 +324,7 @@ get_benefit <- function(df, trigger, rho=1.5) {
   #Compute Actuarily fair premiumL Premium with no mark up
   premium <- mean(data$payouts, na.rm=T)
   # markup 25%
-  #premium <- 1.25 * premium
+  premium <- 1.25 * premium
   #Compute income with insurance
   data$income_ins   <- (data$capital + data$payouts) - premium
   #Determine insurance benefit
@@ -402,7 +398,7 @@ Possible pay-out triggers
 
 ```{r p2}
 mort <- na.omit(dff$mortality_rate)
-trigs <- round(quantile(mort, seq(0.6, 0.9, 0.1)), 1)
+trigs <- round(quantile(mort, seq(0.5, 0.95, 0.05)), 1)
 trigs
 
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
@@ -411,7 +407,6 @@ aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], 
 NOAA NDVI and Log transformed NOAA NDVI.
 
 ```{r p3}
-x11()
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
 res <- list()
 res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "Z-NOAA")
@@ -422,7 +417,7 @@ res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "Z-log NOAA")
 CHIRPS rainfall and log transformed CHIRPS rainfall.
 
 ```{r p4}
-x11()
+
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
 res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "Z-rain")
 res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "Z-log rain")
@@ -431,7 +426,7 @@ res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "Z-log rain")
 MODIS NDVI and log transformed MODIS NDVI.
 
 ```{r p5}
-x11()
+
 par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
 res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "Z-MODIS")
 res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "Z-log MODIS")
@@ -444,77 +439,16 @@ x[,3:ncol(x)] <- lapply(x[,3:ncol(x)], function(i) round(i,3))
 x
 ```
 
-Save model for use in next steps.
-
-```{r p7}
-#x <- x[x$model != "loess", ]
-saveRDS(x, "regression_models.rds")
-```
-
-#### Visualize the results
-
-First display the quality measures for different models and data treatment.
-
-```{r viz1, message=FALSE}
-library(ggplot2)
-#R2
-tt <- x[, c("group", "model","r2")]
-fig.r2 <- ggplot(aes(x=model, y=group, fill=r2), data=tt)
-fig.r2 <- fig.r2 + geom_tile() + scale_fill_gradient2(low="#D7191C", mid="white", high="#2C7BB6") + 
-  #   geom_text(aes(label=stars, color=value), size=8) + scale_colour_gradient(low="grey30", high="white", guide="none") +
-  geom_text(aes(label=round(r2,2)), color="black", size=5) + 
-  labs(y=NULL, x=NULL, fill=expression(R^2)) + 
-  theme_bw() + theme(axis.text=element_text(size=13,face="bold"),legend.text=element_text(size=13))
-x11()
-fig.r2
-#RMSE
-tt <- x[, c("group", "model","RMSE")]
-fig.rmse <- ggplot(aes(x=model, y=group, fill=RMSE), data=tt)
-fig.rmse <- fig.rmse + geom_tile() + scale_fill_gradient2(low="#D7191C", mid="white", high="#2C7BB6") + 
-  geom_text(aes(label=round(RMSE,2)), color="black", size=5) + 
-  labs(y=NULL, x=NULL, fill="RMSE") + 
-  theme_bw() + theme(axis.text=element_text(size=13,face="bold"),legend.text=element_text(size=13))
-x11()
-fig.rmse
-library(ggpubr)
-ggarrange(fig.r2, fig.rmse, labels = c("(a)", "(b)"),
-          ncol = 1, nrow = 2, widths = c(0.5, 0.5,0.5,0.5))
-```
-
-Display the welfare of the farmer based on different data treatments and regression models.
-
-
-```{r viz2, message=FALSE}
-library(ggplot2)
-library(reshape2)
-a <- names(x)
-b <- c("r2","RMSE","intercept","slope")
-tt <- x[,!a %in% b]
-tt <- melt(tt, id=c("group", "model")) 
-tt$variable = as.integer(gsub("mqs","",tt$variable))
-x11()
-ggplot() + 
-  geom_point(data = tt, aes(y = value, x = group, size = variable, color = model)) +
-  scale_y_continuous(breaks = seq(0, 16, by = 4)) +
-  scale_color_manual(values=c('red', 'green', 'blue', 'magenta')) +
-  scale_size_continuous(breaks=as.integer(trigs)) +
-  labs(x="Data", y="Insurance benefit ($)") + 
-  theme_bw() +
-  theme(axis.text=element_text(size=10),
-        axis.title=element_text(size=11,face="bold"), legend.text=element_text(size=11)) +
-  guides(color=guide_legend("Model"), size=guide_legend("Trigger"))
-  
-```
-
 #### How good would a perfect model be?
 
 ```{r}
 dff$capital <- (100 - dff$mortality_rate)/100 * 1000
 dff$predicted_mortality <- dff$mortality_rate
 pf <- sapply(trigs, function(i) get_benefit(dff, i)) 
+pf
 ```
 
-These values can be used to compute a relative mqs score `rmqs`. That could be an interesting measure. 
+Compute a relative IB score `RIB`. 
 
 ```{r}
 xx <- x
@@ -523,3 +457,14 @@ xx[,7:ncol(xx)] <- xx[,7:ncol(xx)] / rep(pf, each=nrow(xx))
 apply(xx[,7:ncol(xx)], 2, max)
 ```
 
+
+# save data 
+
+Save data for use in next steps.
+
+```{r p7}
+#x <- x[x$model != "loess", ]
+saveRDS(x,  "regression_models.rds")
+saveRDS(pf, "perfect.rds")
+saveRDS(xx, "reg_RIB.rds")
+```
