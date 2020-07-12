@@ -1,6 +1,8 @@
 ---
 title: "IBLI visualisation"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 editor_options:
   chunk_output_type: console
 ---
@@ -30,6 +32,7 @@ head(d)
 
 
 ```{r}
+x11()
 par(mfrow=c(2,2))
 boxplot(r2~model, data=d)
 boxplot(RIB~model, data=d)

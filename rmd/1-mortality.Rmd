@@ -1,6 +1,8 @@
 ---
 title: "IBLI evaluation"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 editor_options:
   chunk_output_type: console
 ---
@@ -245,33 +247,26 @@ Check predictors distributions.
 library(MASS)
 distfun <- function(x, main="") {
    x <- na.omit(x)
-   par(mfrow=c(1,2))
+   #par(mfrow=c(1,2))
    for (i in 1:2) {
      if(i==2) x <- na.omit(log(x+0.05))
-     hist(x, breaks=30, prob=TRUE, xlab="index", main = ifelse(i==1, main, "log"))
+     hist(x, breaks=30, prob=TRUE, xlab="index", main = ifelse(i==1, main, paste0("log(",main,")")))
      fit <- fitdistr(x, "normal")
      curve(dnorm(x, fit$estimate[1], fit$estimate[2]), col = "red", lwd=2, add = TRUE)
    }
 }
 ```
 
-NOAA
+Data distribution. 
 
 ```{r nn11, message=FALSE}
-
+x11()
+par(mfrow=c(2, 3), mar=c(4.5, 3.8, 1.8, 1)) #c(bottom, left, top, right)
+#NOAA
 distfun(na.omit(dff$noaa), main="NOAA")
-```
-
-MODIS NDVI
-
-```{r nn2}
+#MODIS NDVI
 distfun(dff$modis, main="MODIS")
-```
-
-CHIRPS
-
-```{r nn3}
-
+#CHIRPS
 distfun(dff$rainfall, main="Rainfall")
 ```
 
@@ -355,7 +350,7 @@ regfun <- function(x, y, triggers, main="") {
   colnames(test) <- c("group", "model", "r2", "RMSE", "intercept", "slope", mqsn)
   test$group <- main
   test$model <- c("lm", "lm0", "lm5", "seg")
-  plot(y~x, pch=16, main=main, cex=0.8)
+  plot(y~x, pch=16, main=main, cex=0.8, cex.main=1.3)
 
   ml <- lm(y~x, data=df)
   abline(ml, col="magenta", lwd=3, lty=2)  
@@ -418,33 +413,22 @@ trigs
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
 ```
 
-NOAA NDVI and Log transformed NOAA NDVI.
+Regression models.
 
 ```{r p3}
-par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
+par(mfrow=c(2, 3), mar=c(4.5, 3.6, 1.8, 1)) #c(bottom, left, top, right)
 res <- list()
+#NOAA NDVI and Log transformed NOAA NDVI.
 res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "NO")
 res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "logNO")
-```
-
-
-CHIRPS rainfall and log transformed CHIRPS rainfall.
-
-```{r p4}
-
-par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
+#CHIRPS rainfall and log transformed CHIRPS rainfall.
 res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "RN")
 res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "logRN")
-```
-
-MODIS NDVI and log transformed MODIS NDVI.
-
-```{r p5}
-
-par(mfrow=c(1, 2), mar=c(12, 3.6, 1.5, 1)) #c(bottom, left, top, right)
+#MODIS NDVI and log transformed MODIS NDVI.
 res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "MD")
 res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "logMD")
 ```
+
 
 ```{r p6}
 x <- do.call(rbind, res)
