@@ -336,7 +336,6 @@ get_benefit <- function(df, trigger, rho=1.5) {
 }
 ```
 
-
 Regression
 
 ```{r p11}
@@ -420,13 +419,13 @@ par(mfrow=c(2, 3), mar=c(4.5, 3.6, 1.8, 1)) #c(bottom, left, top, right)
 res <- list()
 #NOAA NDVI and Log transformed NOAA NDVI.
 res$noaa <- regfun(dff$znoaa, dff$mortality_rate, trigs, "NO")
-res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "logNO")
+res$lognoaa <- regfun(dff$zlnoaa, dff$mortality_rate, trigs, "lNO")
 #CHIRPS rainfall and log transformed CHIRPS rainfall.
 res$rain <- regfun(dff$zrain, dff$mortality_rate, trigs, "RN")
-res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "logRN")
+res$lograin <- regfun(dff$zlrain, dff$mortality_rate, trigs, "lRN")
 #MODIS NDVI and log transformed MODIS NDVI.
 res$modis <- regfun(dff$zmodis, dff$mortality_rate, trigs, "MD")
-res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "logMD")
+res$logmodis <- regfun(dff$zlmodis, dff$mortality_rate, trigs, "lMD")
 ```
 
 

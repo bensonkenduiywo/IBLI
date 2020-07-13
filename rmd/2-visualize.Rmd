@@ -6,12 +6,37 @@ output:
 editor_options:
   chunk_output_type: console
 ---
+## load packages
+```{r packages, message=FALSE}
+library(ggplot2)
+library(reshape2)
+```
 
 ## read data
 
 ```{r}
+rm(list = ls(all=TRUE))
 x <- readRDS("reg_RIB.rds")
 z <- readRDS("perfect.rds")
+```
+Visualize all the variables (RIB, model, triggers and remote sensing indices).
+
+```{r v1}
+tt <- x[, c("group", "model","mqs10.3", "mqs12.6", "mqs13.9", "mqs15.8", "mqs17.6", "mqs23", "mqs27.6", "mqs41.5" )]
+tt <- melt(tt, id=c("group", "model")) 
+tt$variable = as.double(gsub("mqs","",tt$variable))
+trigs <- unique(tt$variable)
+x11()
+ggplot() + 
+  geom_point(data = tt, aes(y = value, x = group, size = variable, color = model)) +
+  scale_y_continuous(breaks = seq(-3.5, 0.7, by = 0.5)) + #seq(0, 0.75, by = 0.1)
+  scale_color_manual(values=c('red', 'green', 'blue', 'magenta')) +
+  #scale_size_continuous(breaks=trigs) +
+  labs(x="Remote sensing index", y="RIB") + 
+  theme_bw() +
+  theme(axis.text=element_text(size=10),
+        axis.title=element_text(size=11,face="bold"), legend.text=element_text(size=11)) +
+  guides(color=guide_legend("Model"), size=guide_legend("Trigger"))
 ```
 
 The best threshold is 80%, or mqs23. Let's first just look at that one
@@ -33,11 +58,12 @@ head(d)
 
 ```{r}
 x11()
-par(mfrow=c(2,2))
-boxplot(r2~model, data=d)
-boxplot(RIB~model, data=d)
-boxplot(r2~group, data=d)
-boxplot(RIB~group, data=d)
+par(mfrow=c(1, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
+boxplot(r2~model, data=d, ylab = expression(R^2), xlab="Model")
+boxplot(RIB~model, data=d, xlab="Model")
+boxplot(r2~group, data=d, ylab = expression(R^2), xlab="Remote sensing index")
+boxplot(RIB~group, data=d, xlab="Remote sensing index")
+
 ```
 
 
@@ -57,6 +83,7 @@ plot(s$r2, s$RIB)
 
 
 ```{r}
-plot(d[,3:4], pch=20, col="red") #, xlim=c(0,1), ylim=c(0,1))
+x11()
+plot(d[,3:4], pch=20, col="red", xlab = expression(R^2)) #, xlim=c(0,1), ylim=c(0,1))
 ```
 
