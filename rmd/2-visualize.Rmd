@@ -95,7 +95,7 @@ Plot RIB against R$^2$ consider all mortality triggers: 10.3%, 12.6%, 13.9%, 15.
 tt <- x[, c("group", "model","r2","mqs10.3", "mqs12.6", "mqs13.9", "mqs15.8", "mqs17.6", "mqs23", "mqs27.6", "mqs41.5" )]
 trig_plots <- function(models, label){
   d <- tt[tt$model==models,]
-  plot(mqs10.3~r2, data=d, pch=20, col="black", ylab="RIB", xlab = expression(R^2), ylim=c(min(d$mqs10.3), max(d$mqs17.6)+0.1), main=label) #yaxt="none"
+  plot(mqs10.3~r2, data=d, pch=20, col="black", ylab="RIB", xlab = expression(R^2), ylim=c(min(d$mqs10.3), max(d$mqs17.6)+0.1), main=label, cex=0.9, cex.main=1.2, cex.lab=1.2) #yaxt="none"
   #axis(2, seq(-3.5, 1, by = 0.5),las=2)
   points(mqs12.6~r2, data=tt, pch=20, col="blue")
   points(mqs13.9~r2, data=tt, pch=20, col="red")
