@@ -1,6 +1,7 @@
 ---
 title: "IBLI evaluation"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 editor_options:
@@ -260,7 +261,7 @@ distfun <- function(x, main="") {
 Data distribution. 
 
 ```{r nn11, message=FALSE}
-x11()
+
 par(mfrow=c(2, 3), mar=c(4.5, 3.8, 1.8, 1)) #c(bottom, left, top, right)
 #NOAA
 distfun(na.omit(dff$noaa), main="NOAA")
