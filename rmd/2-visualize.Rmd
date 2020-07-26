@@ -27,7 +27,7 @@ tt <- x[, c("group", "model","mqs10.3", "mqs12.6", "mqs13.9", "mqs15.8", "mqs17.
 tt <- melt(tt, id=c("group", "model")) 
 tt$variable = as.double(gsub("mqs","",tt$variable))
 trigs <- unique(tt$variable)
-x11()
+
 ggplot() + 
   geom_point(data = tt, aes(y = value, x = group, size = variable, color = model)) +
   scale_y_continuous(breaks = seq(-3.5, 0.7, by = 0.5)) + #seq(0, 0.75, by = 0.1)
@@ -59,7 +59,7 @@ head(d)
 barplots with all parameters at trigger=23%.
 
 ```{r v5}
-x11()
+
 par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
 boxplot(r2~model, data=d, ylab = expression(R^2), xlab="Model")
 boxplot(RIB~model, data=d, xlab="Model")
@@ -86,6 +86,7 @@ plot(s$r2, s$RIB)
 Plot RIB against R$^2$ under mortality trigger of 23%.
 
 ```{r v7}
+<<<<<<< HEAD
 x11()
 #par(mar=c(7, 7, 7, 7)) #c(bottom, left, top, right)
 #plot(d[,3:4], pch=20, col="red", xlab = expression(R^2)) #, xlim=c(0,1), ylim=c(0,1))
@@ -98,6 +99,10 @@ ggplot() +
   theme_bw()+
   theme(plot.margin = unit(c(4,2,2,2), "cm"))
 
+=======
+
+plot(d[,3:4], pch=20, col="red", xlab = expression(R^2)) #, xlim=c(0,1), ylim=c(0,1))
+>>>>>>> 6d46b0f400b204529630bd8e0800523086b43e03
 ```
 
 Plot RIB against R$^2$ consider all mortality triggers: 10.3%, 12.6%, 13.9%, 15.8%, 17.6%, 23.0%, 27.6%, and 41.5%.
@@ -117,14 +122,13 @@ trig_plots <- function(models, label){
   points(mqs41.5~r2, data=tt, pch=20, col="yellow")
   #legend("bottomleft", c("10.3%", "12.6%", "13.9%", "15.8%", "17.6%", "23.0%", "27.6%", "41.5%"), pch=20, col=c("black", "blue", "red", "green", "magenta", "cyan", "brown", "yellow"), title = "Trigger", bty = "n")
 }
-x11()
+
 par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1))
 trig_plots("lm", "(a)")
 trig_plots("lm0", "(b)")
 trig_plots("lm5", "(c)")
 trig_plots("seg", "(d)")
-x11()
-plot.new()
+
 legend("bottomleft", c("10.3%", "12.6%", "13.9%", "15.8%", "17.6%", "23.0%", "27.6%", "41.5%"), pch=20, col=c("black", "blue", "red", "green", "magenta", "cyan", "brown", "yellow"), title = "Trigger", bty = "n")
 
 ```
