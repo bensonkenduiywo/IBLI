@@ -59,12 +59,12 @@ head(d)
 barplots with all parameters at trigger=23%.
 
 ```{r v5}
-
+d$model[d$model=="seg"] <- "sm"
 par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
 boxplot(r2~model, data=d, ylab = expression(R^2), xlab="Model")
 boxplot(RIB~model, data=d, xlab="Model")
-boxplot(r2~group, data=d, ylab = expression(R^2), xlab="Remote sensing index")
-boxplot(RIB~group, data=d, xlab="Remote sensing index")
+boxplot(r2~group, data=d, ylab = expression(R^2), xlab="Predictor")
+boxplot(RIB~group, data=d, xlab="Predictor")
 
 ```
 
@@ -86,7 +86,6 @@ plot(s$r2, s$RIB)
 Plot RIB against R$^2$ under mortality trigger of 23%.
 
 ```{r v7}
-<<<<<<< HEAD
 x11()
 #par(mar=c(7, 7, 7, 7)) #c(bottom, left, top, right)
 #plot(d[,3:4], pch=20, col="red", xlab = expression(R^2)) #, xlim=c(0,1), ylim=c(0,1))
@@ -99,10 +98,8 @@ ggplot() +
   theme_bw()+
   theme(plot.margin = unit(c(4,2,2,2), "cm"))
 
-=======
-
 plot(d[,3:4], pch=20, col="red", xlab = expression(R^2)) #, xlim=c(0,1), ylim=c(0,1))
->>>>>>> 6d46b0f400b204529630bd8e0800523086b43e03
+
 ```
 
 Plot RIB against R$^2$ consider all mortality triggers: 10.3%, 12.6%, 13.9%, 15.8%, 17.6%, 23.0%, 27.6%, and 41.5%.

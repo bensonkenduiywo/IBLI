@@ -1,6 +1,7 @@
 ---
 title: "IBLI evaluation"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 editor_options:
@@ -13,6 +14,7 @@ editor_options:
 rm(list = ls(all=TRUE))
 library(dplyr)
 library(raster)
+library(sp)
 ```
 
 ## Data preparation
@@ -260,7 +262,7 @@ distfun <- function(x, main="") {
 Data distribution. 
 
 ```{r nn11, message=FALSE}
-x11()
+
 par(mfrow=c(2, 3), mar=c(4.5, 3.8, 1.8, 1)) #c(bottom, left, top, right)
 #NOAA
 distfun(na.omit(dff$noaa), main="NOAA")
@@ -349,7 +351,7 @@ regfun <- function(x, y, triggers, main="") {
   colnames(test) <- c("group", "model", "r2", "RMSE", "intercept", "slope", mqsn)
   test$group <- main
   test$model <- c("lm", "lm0", "lm5", "seg")
-  plot(y~x, pch=16, main=main, cex=0.9, cex.main=1.2, cex.lab=1.2)
+  plot(y~x, pch=16, main=main, cex=0.9, cex.main=1.2, cex.lab=1.2, xlab="", ylab="")
 
   ml <- lm(y~x, data=df)
   abline(ml, col="magenta", lwd=3, lty=2)  
