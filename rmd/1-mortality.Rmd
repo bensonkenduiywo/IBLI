@@ -265,7 +265,7 @@ Data distribution.
 
 par(mfrow=c(2, 3), mar=c(4.5, 3.8, 1.8, 1)) #c(bottom, left, top, right)
 #NOAA
-distfun(na.omit(dff$noaa), main="NOAA")
+distfun(dff$noaa, main="NOAA")
 #MODIS NDVI
 distfun(dff$modis, main="MODIS")
 #CHIRPS
@@ -326,7 +326,7 @@ get_benefit <- function(df, trigger, rho=1.5) {
   data <- na.omit(df)
   #trigger <- quantile(data$predicted_mortality, 0.80, na.rm=T)
   #Compute payouts
-  data$payouts <- pmax(0, data$predicted_mortality - trigger)/100 * 1000
+  data$payouts <- (pmax(0, data$predicted_mortality - trigger)/100) * 1000
   #Compute Actuarily fair premiumL Premium with no mark up
   premium <- mean(data$payouts, na.rm=T)
   # markup 25%
@@ -336,15 +336,18 @@ get_benefit <- function(df, trigger, rho=1.5) {
   #Determine insurance benefit
   mqs_test(rho, data)
 }
+
 ```
 
 Regression
 
 ```{r p11}
 regfun <- function(x, y, triggers, main="") {
+  lm5 <- -0.5
+  lm0 <- 0
   df <- na.omit(data.frame(x=x, y=y))
-  df0 <- df[df$x<0,]
-  df5 <- df[df$x < -0.5,]
+  df0 <- df[df$x < lm0,]
+  df5 <- df[df$x < lm5,]
   test <- data.frame(matrix(nrow=4, ncol=6+length(triggers)))
   mqsn <- paste0("mqs", triggers)
   nt <- length(triggers)
@@ -373,7 +376,7 @@ regfun <- function(x, y, triggers, main="") {
   
   e <- predict(ml2)
   df$predicted_mortality <- NA
-  df$predicted_mortality[df$x<0] <- e
+  df$predicted_mortality[df$x< lm0] <- e
   for (i in 1:nt) test[2,i+6] <- get_benefit(df, triggers[i])
 
   test[2,3:4] <- c(Rsq(df0$y, e), rrmse(df0$y, e))
@@ -381,7 +384,7 @@ regfun <- function(x, y, triggers, main="") {
   
   e <- predict(ml5)
   df$predicted_mortality <- NA
-  df$predicted_mortality[df$x < -0.5] <- e
+  df$predicted_mortality[df$x < lm5] <- e
   for (i in 1:nt) test[3,i+6] <- get_benefit(df, triggers[i])
   test[3,3:4] <- c(Rsq(df5$y, e), rrmse(df5$y, e))
   test[3,5:6] <- coefficients(ml5)
@@ -465,9 +468,9 @@ Save data for use in next steps.
 
 ```{r p7}
 #x <- x[x$model != "loess", ]
-saveRDS(x,  "regression_models.rds")
-saveRDS(pf, "perfect.rds")
-saveRDS(xx, "reg_RIB.rds")
+saveRDS(x,  "rmd/regression_models.rds")
+saveRDS(pf, "rmd/perfect.rds")
+saveRDS(xx, "rmd/reg_RIB.rds")
 ```
 
 

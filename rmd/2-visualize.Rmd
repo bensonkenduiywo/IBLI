@@ -61,10 +61,10 @@ barplots with all parameters at trigger=23%.
 ```{r v5}
 d$model[d$model=="seg"] <- "sm"
 par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
-boxplot(r2~model, data=d, ylab = expression(R^2), xlab="Model")
-boxplot(RIB~model, data=d, xlab="Model")
-boxplot(r2~group, data=d, ylab = expression(R^2), xlab="Predictor")
-boxplot(RIB~group, data=d, xlab="Predictor")
+boxplot(r2~model, data=d, ylab = expression(R^2), xlab="Model", main="(a)")
+boxplot(RIB~model, data=d, xlab="Model", main="(b)")
+boxplot(r2~group, data=d, ylab = expression(R^2), xlab="Predictor", main="(c)")
+boxplot(RIB~group, data=d, xlab="Predictor", main="(d)")
 
 ```
 
