@@ -11,7 +11,6 @@ editor_options:
 ## Packages
 
 ```{r lib, message=FALSE}
-rm(list = ls(all=TRUE))
 library(dplyr)
 library(raster)
 library(sp)
@@ -168,7 +167,8 @@ mort <- agrodata::data_ibli("marsabit_mortality.rds")
 mort2 <- mort[mort$type == "TLU", ]  # remote TLU for merging
 
 amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
-amort$mortality_rate <- (amort$loss / amort$stock_beginning) * 100
+amort$mortality_rate <- (amort$loss / amort$stock_beginning) 
+#it is a rate, let's not do:  * 100
 ```
 
 #### Spatial Variation of mortality
@@ -315,26 +315,27 @@ Here we test the performance of piecewise linear regression model and segmented 
 library(segmented)
 #MQS function
 library(agro)
-mqs_test <- function(rho, df){
-  ce_base <- ce_income(df$capital, rho)
-  ce_ins  <- ce_income(df$income_ins, rho)
-  ce_ins - ce_base
+mqs_test <- function(rho, d){
+  const <- 1000 # ce needs numbers > 1
+  ce_base <- ce_income(d$capital * const, rho)
+  ce_ins  <- ce_income(d$capital_ins * const, rho)
+  (ce_ins - ce_base) / const
 }
 
 get_benefit <- function(df, trigger, rho=1.5) {
   #Define trigger
-  data <- na.omit(df)
+  d <- na.omit(df)
   #trigger <- quantile(data$predicted_mortality, 0.80, na.rm=T)
   #Compute payouts
-  data$payouts <- (pmax(0, data$predicted_mortality - trigger)/100) * 1000
-  #Compute Actuarily fair premiumL Premium with no mark up
-  premium <- mean(data$payouts, na.rm=T)
-  # markup 25%
-  premium <- 1.25 * premium
-  #Compute income with insurance
-  data$income_ins   <- (data$capital + data$payouts) - premium
+  d$payouts <- pmax(0, d$predicted_mortality - trigger) 
+  # no need to multiply here, let just set the value of a TLU to "1". * 1000
+  #Compute Actuarily fair premiumL Premium with markup 25%
+  premium <- mean(d$payouts, na.rm=TRUE) * 1.1
+  #Compute capital with insurance
+  d$capital     <- 1 - d$mortality
+  d$capital_ins <- (d$capital + d$payouts) - premium
   #Determine insurance benefit
-  mqs_test(rho, data)
+  mqs_test(rho, d)
 }
 
 ```
@@ -366,7 +367,7 @@ regfun <- function(x, y, triggers, main="") {
   sm <- segmented(ml, seg.Z = ~x, psi=0)
   plot.segmented(sm, add=T, lwd=2, lty=1, col="red") 
   
-  df$capital <- (100 - df$y)/100 * 1000
+  df$mortality <- df$y
   e <- predict(ml)
   df$predicted_mortality <- e
   
@@ -375,16 +376,17 @@ regfun <- function(x, y, triggers, main="") {
   test[1,5:6] <- coefficients(ml)
   
   e <- predict(ml2)
-  df$predicted_mortality <- NA
+  df$predicted_mortality <- 0
   df$predicted_mortality[df$x< lm0] <- e
+  
   for (i in 1:nt) test[2,i+6] <- get_benefit(df, triggers[i])
-
   test[2,3:4] <- c(Rsq(df0$y, e), rrmse(df0$y, e))
   test[2,5:6] <- coefficients(ml2)
   
   e <- predict(ml5)
-  df$predicted_mortality <- NA
+  df$predicted_mortality <- 0
   df$predicted_mortality[df$x < lm5] <- e
+
   for (i in 1:nt) test[3,i+6] <- get_benefit(df, triggers[i])
   test[3,3:4] <- c(Rsq(df5$y, e), rrmse(df5$y, e))
   test[3,5:6] <- coefficients(ml5)
@@ -411,10 +413,10 @@ Possible pay-out triggers
 
 ```{r p2}
 mort <- na.omit(dff$mortality_rate)
-trigs <- round(quantile(mort, seq(0.6, 0.95, 0.05)), 1)
+trigs <- round(quantile(mort, seq(0.75, 0.9, 0.05)), 2)
 trigs
 
-aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8), na.rm=T))
+aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8, 0.85), na.rm=T))
 ```
 
 Regression models.
@@ -444,10 +446,10 @@ x
 #### How good would a perfect model be?
 
 ```{r}
-dff$capital <- (100 - dff$mortality_rate)/100 * 1000
+dff$mortality <- dff$mortality_rate
 dff$predicted_mortality <- dff$mortality_rate
 pf <- sapply(trigs, function(i) get_benefit(dff, i)) 
-pf
+pf * 100
 ```
 
 Compute a relative IB score `RIB`. 
@@ -468,9 +470,9 @@ Save data for use in next steps.
 
 ```{r p7}
 #x <- x[x$model != "loess", ]
-saveRDS(x,  "rmd/regression_models.rds")
-saveRDS(pf, "rmd/perfect.rds")
-saveRDS(xx, "rmd/reg_RIB.rds")
+saveRDS(x,  "regression_models.rds")
+saveRDS(pf, "perfect.rds")
+saveRDS(xx, "reg_RIB.rds")
 ```
 
 
