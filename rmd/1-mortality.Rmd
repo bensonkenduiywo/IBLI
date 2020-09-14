@@ -11,6 +11,7 @@ editor_options:
 ## Packages
 
 ```{r lib, message=FALSE}
+rm(list=ls(all=TRUE))
 library(dplyr)
 library(raster)
 library(sp)
@@ -168,7 +169,6 @@ mort2 <- mort[mort$type == "TLU", ]  # remote TLU for merging
 
 amort <- aggregate(mort2[,c("stock_beginning", "loss"), drop=FALSE], mort2[, c("season","year","sublocation"), drop=FALSE], mean, na.rm=TRUE)
 amort$mortality_rate <- (amort$loss / amort$stock_beginning) 
-#it is a rate, let's not do:  * 100
 ```
 
 #### Spatial Variation of mortality
@@ -280,6 +280,7 @@ Merge mortality data with NDVI and rainfall data.
 ```{r d6}
 colnames(amort)[3] <- "SUBLOCATION"
 dff <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
+saveRDS(dff,  "m_data.rds")
 ```
 
 
@@ -288,6 +289,7 @@ dff <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
 We will determine the effect rainfall data transformation on mortality predictions based on R$^2$ and Root Mean Square Error (RMSE). RMSE and R$^2$ functions are given as:
 
 This is the relative RMSE (relative to a null model. that is more informative)
+
 ```{r fxn2}
 rrmse <- function(observed, predicted){ 
   error <- observed - predicted
@@ -316,7 +318,7 @@ library(segmented)
 #MQS function
 library(agro)
 mqs_test <- function(rho, d){
-  const <- 1000 # ce needs numbers > 1
+  const <- 1000 # 1TLU is 1000$
   ce_base <- ce_income(d$capital * const, rho)
   ce_ins  <- ce_income(d$capital_ins * const, rho)
   (ce_ins - ce_base) / const
@@ -393,6 +395,9 @@ regfun <- function(x, y, triggers, main="") {
   
   e <- predict(sm)
   df$predicted_mortality <- e
+  #save sm prediction
+  df_sm <- data.frame(observed=df$mortality, predicted=e)
+  saveRDS(df_sm, "sm_predictions.rds")
   for (i in 1:nt) test[4,i+6] <- get_benefit(df, triggers[i])
   
   test[4,3:4] <- c(Rsq(df$y, e), rrmse(df$y, e))

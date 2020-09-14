@@ -2,8 +2,8 @@
 if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
 } else { setwd('C:/Users/camila/Google Drive/AfSF') }
 
-x <- readRDS("rmd/reg_RIB.rds")
-z <- readRDS("rmd/perfect.rds")
+x <- readRDS("reg_RIB.rds")
+z <- readRDS("perfect.rds")
 
 tv <- "0.18"
 tvar <- paste0("mqs", tv)
@@ -23,7 +23,7 @@ cols <- pal[match(d$model, um)]
 char <- (1:6)[match(d$group, ug)]
 
 png("figs/fig4.png", 800, 800, pointsize = 24)
-
+x11()
 par(mar=c(4, 4, 1, 1))
 plot(d[,3:4], type="n", xlab = expression(R^2),cex=.8,
 	xlim=c(0,0.7), ylim=c(0,0.7), las=1, asp=1, xaxs="i", yaxs="i")
