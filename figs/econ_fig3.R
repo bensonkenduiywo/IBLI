@@ -24,12 +24,14 @@ par(mfrow=c(1, 2), mar=c(15, 4, 1.8, 0.5)) #c(bottom, left, top, right)
 x <- dff$mortality_rate
 y <- dff$zlmodis_mortality
 plot(x*100, y*100, pch=16, xlab="Observed loss (%)", ylab="Predicted loss (%)",
-     main="Best Model: sm+lMD", cex.axis=0.85, cex.lab=0.9, cex=0.65)
+     main="(a)", cex.axis=0.85, cex.lab=0.9, cex=0.65, ylim = c(0,50))
 abline(0, 1, lwd=1.5, col="blue")
-aa <- rep(23,24)
-bb <- 0:23
-lines(aa, bb, col="red", lwd=1.5)
-text(30,5, "Trigger", cex=0.85, col="red")
+abline(h=23, col="red")
+abline(v=23, col="red")
+#aa <- rep(23,24)
+#bb <- 0:23
+#lines(aa, bb, col="red", lwd=1.5)
+#text(30,5, "Trigger", cex=0.85, col="red")
 #text(40,20, "Under predicted", cex=0.75)
 #text(10,45, "Over predicted", cex=0.75)
 
@@ -47,11 +49,13 @@ dff$zrain_mortality <- predict(lm)
 x <- dff$mortality_rate
 y <- dff$zrain_mortality
 plot(x*100, y*100, pch=16, xlab="Observed loss (%)", ylab="Predicted loss (%)",
-     main="Poor Model: lm+RN", cex.axis=0.85, cex.lab=0.9, cex=0.65)
+     main="(b)", cex.axis=0.85, cex.lab=0.9, cex=0.65, ylim = c(0,50))
 abline(0, 1, lwd=1.5, col="blue")
-aa <- rep(23,29)
-bb <- -5:23
-lines(aa, bb, col="red", lwd=1.5)
-text(30,0, "Trigger", cex=0.85, col="red")
+abline(h=23, col="red")
+abline(v=23, col="red")
+#aa <- rep(23,29)
+#bb <- -5:23
+#lines(aa, bb, col="red", lwd=1.5)
+#text(30,0, "Trigger", cex=0.85, col="red")
 #text(40,10, "Under predicted")
 #text(10,25, "Over predicted")

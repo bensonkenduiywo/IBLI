@@ -21,7 +21,7 @@ dff$perfect_ins <- (dff$capital + dff$payouts) - premium
 #========================================================================
 #2.0 Contracc with high R2 but low RIB: lm5+lNO
 #========================================================================
-#Predict mortality using segmented regression
+#Predict mortality using piecewise regression
 df0 <- dff[dff$zlnoaa< -0.5,]
 x <- df0$zlnoaa
 y <- df0$mortality_rate

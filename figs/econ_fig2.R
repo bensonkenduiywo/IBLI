@@ -25,6 +25,7 @@ dff$perfect_ins <- (dff$capital + dff$payouts) - premium
 x <- dff$zlmodis
 y <- dff$mortality_rate
 ml <- lm(y~x, data=dff)
+library(segmented)
 sm <- segmented(ml, seg.Z = ~x, psi=0)
 #plot(y~x, pch=16, cex=0.9, main="Segmented regression", cex.main=1.1, cex.lab=1.1, xlab="z-score(lMD)", ylab="Mortality rate")
 #plot.segmented(sm, add=T, lwd=2, lty=1, col="red") 
@@ -40,20 +41,21 @@ dff$Modis_ins <- (dff$capital + dff$zlmodis_payouts) - premium
 library(ggplot2)
 x11()
 cols <- c("blue", "red", "green")
-ggplot(dff, aes(x=capital)) +
-  geom_smooth(aes(y=Modis_ins,  colour="log MODIS index"), se = FALSE, size=0.7, method = 'gam')+
+p1 <- ggplot(dff, aes(x=capital)) +
+  geom_smooth(aes(y=Modis_ins, colour="lMD"), se = FALSE, size=0.7, method = 'gam')+
   geom_point(aes(y=Modis_ins), colour="red", size=1.5)+
   geom_line(aes(y=capital, colour="Income without insurance"), size=0.7) +
   geom_line(aes(y=perfect_ins, colour="Perfect insurance"), size=0.7)+
   labs(y="Assets (USD)", x="Assets (USD)") +
-  scale_colour_manual(name="Type", values=cols) + 
-  theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), axis.line.x=element_line(), axis.line.y=element_line(),
-        axis.text.x = element_text(color="black",size=10),
-        axis.text.y = element_text(color="black",size=10))  
-#https://stackoverflow.com/questions/26587940/ggplot2-different-legend-symbols-for-points-and-lines
+  scale_colour_manual(name="Key", values=cols) + 
+  theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), 
+        axis.line.x=element_line(), axis.line.y=element_line(),
+        axis.text.x = element_text(color="black", size=12),
+        axis.text.y = element_text(color="black", size=12),
+        legend.text=element_text(size=12))  
 
 #========================================================================
-#4.0 Poor index Insurance contract (linear regression based on rainfall predictors)
+#4.0 lMD+lm5 contract (R2=0.418 & RIB=0.49886841)
 #========================================================================
 #Predict mortality using linear regression and z-scored rainfall as predictors
 x <- dff$zlrain
@@ -69,14 +71,23 @@ dff$zrain_ins <- (dff$capital + dff$zrain_payouts) - premium
 #Make plots of perfect insurance contract
 x11()
 cola <- c("blue", "green", "red")
-ggplot(dff, aes(x=capital)) +
-  geom_smooth(aes(y=zrain_ins,  colour="Rainfall index"), se = FALSE, size=0.7, method = 'gam')+
+p2 <- ggplot(dff, aes(x=capital)) +
+  geom_smooth(aes(y=zrain_ins,  colour="RN"), se = FALSE, size=0.7, method = 'gam')+
   geom_point(aes(y=zrain_ins), colour="red", size=1.5)+
   geom_line(aes(y=capital, colour="Income without insurance"), size=0.7) +
   geom_line(aes(y=perfect_ins, colour="Perfect insurance"), size=0.7)+
   labs(y="Assets (USD)", x="Assets (USD)") +
   scale_colour_manual(name="Type", values=cola) + 
   theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), axis.line.x=element_line(), axis.line.y=element_line(),
-        axis.text.x = element_text(color="black",size=10),
-        axis.text.y = element_text(color="black",size=10))
+        axis.text.x = element_text(color="black",size=12),
+        axis.text.y = element_text(color="black",size=12),
+        legend.text=element_text(size=12))
+
+p2
+#Combine the figures
+library("ggpubr")
+fig <- ggarrange(p1, p2,
+                    labels = c("(a)", "(b)"),
+                    ncol = 1, nrow = 2)
+fig
 
