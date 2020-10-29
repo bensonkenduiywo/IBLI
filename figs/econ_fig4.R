@@ -19,7 +19,7 @@ dff$capital     <- (1 - dff$mortality) * 1000
 dff$perfect_ins <- (dff$capital + dff$payouts) - premium
 
 #========================================================================
-#2.0 Contracc with high R2 but low RIB: lm5+lNO
+#2.0 Contract with high R2 but low RIB: lm5+lNO
 #========================================================================
 #Predict mortality using piecewise regression
 df0 <- dff[dff$zlnoaa< -0.5,]

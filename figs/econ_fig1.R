@@ -17,15 +17,15 @@ dff$capital_ins <- (dff$capital + dff$payouts) - premium
 x11()
 income   <- dff$capital
 c_i <- dff$capital_ins
-png("figs/econ_fig1.png", 800, 800, pointsize = 24)
+#png("figs/econ_fig1.png", 800, 800, pointsize = 24)
 plot(income, income, col="red", xlim=range(income), ylim=range(income), type="l",xlab="Assets (USD)", ylab="Assets (USD)", lwd=1.2)
 lines(income[order(income)], c_i[order(income)], col="green", lwd=1.2)
 points(income, c_i, col="green", pch=1, cex=0.9)
 curly(x=650, y=698, len= 46, lty=1, lwd=1.2, theta=pi)
-text(x = 540, y = 700, 'Insurance relief')
-curly(x=900, y=890, len= 13, lty=1, lwd=1.2, wid=5,theta=pi*2)
-text(x = 960, y = 890, 'Premium')
+text(x = 550, y = 700, expression(paste(symbol("\xd1"),'=I(',theta,')-p>0')), cex=1.2)
+curly(x=900, y=890, len= 20, lty=1, lwd=1.2, wid=6,theta=pi*2)
+text(x = 960, y = 890, expression(paste(symbol("\xd1"),'=<p<0')), cex=1.2)
 legend("bottomright", lwd=1.2, lty = c(1,1), pch = c(NA,1), col = c("red", "green"), legend=c('Asset without insurance', 'Asset with insurance'))
-dev.off()
+#dev.off()
 
 
