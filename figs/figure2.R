@@ -41,14 +41,14 @@ scale2mean <- function(x){
 }
 
 
-ddo$lambda <- fscale(ddo$lambda)
-ddo$delta <- fscale(ddo$delta)
+ddo$lambda <- fscale(ddo$lambda)+0.15
+ddo$delta <- scale2mean(ddo$delta)-0.1
 
 x11()
 ggplot(data = ddo, aes(x = hist)) +
   geom_histogram(aes(y=..ncount..),
                  col="black",
-                 bins = 20,
+                 bins = 25,
                  alpha=.2) +
   geom_line(data = ddo, aes(x = hist, y = lambda, colour='blue')) + 
   geom_line(data = ddo, aes(x = hist, y = delta, colour='green')) + 
