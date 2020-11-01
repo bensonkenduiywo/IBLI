@@ -1,7 +1,5 @@
 rm(list=ls(all=TRUE))
 dff <- readRDS("m_data.rds")
-
-library(lava)
 dff <- na.omit(dff)
 #Perfect Insurance contract
 trigger <- 0.23 
@@ -12,6 +10,12 @@ premium <- mean(dff$payouts, na.rm=TRUE) * 1.25
 #Compute capital with insurance
 dff$capital     <- (1 - dff$mortality) * 5000
 dff$capital_ins <- (dff$capital + dff$payouts) - premium
+
+#Compute CE with and without insurance
+library(agro)
+
+ce_income(dff$capital, rho=2)
+ce_income(dff$capital_ins, rho=2)
 
 #Make plots of perfect insurance contract
 x11()
@@ -28,4 +32,8 @@ text(x = 960, y = 890, expression(paste(symbol("\xd1"),'=<p<0')), cex=1.2)
 legend("bottomright", lwd=1.2, lty = c(1,1), pch = c(NA,1), col = c("red", "green"), legend=c('Asset without insurance', 'Asset with insurance'))
 #dev.off()
 
+x11()
+ggplot(data = dff,  aes(x = capital, y= capital)) + 
+  geom_line(aes(y= capital_ins)) + 
+  geom_line(aes(y= capital))
 

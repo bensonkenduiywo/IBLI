@@ -41,8 +41,8 @@ scale2mean <- function(x){
 }
 
 
-ddo$lambda <- scale2mean(ddo$lambda)
-ddo$delta <- scale2mean(ddo$delta)
+ddo$lambda <- fscale(ddo$lambda)
+ddo$delta <- fscale(ddo$delta)
 
 x11()
 ggplot(data = ddo, aes(x = hist)) +
@@ -52,13 +52,15 @@ ggplot(data = ddo, aes(x = hist)) +
                  alpha=.2) +
   geom_line(data = ddo, aes(x = hist, y = lambda, colour='blue')) + 
   geom_line(data = ddo, aes(x = hist, y = delta, colour='green')) + 
-  scale_colour_manual(values = c('blue' = 'blue', 'green' = 'green'),name = '', labels = expression(lambda,  symbol("\xd1"))) +
-  labs(y="", x="Assets (USD)") +
+  scale_colour_manual(values = c('blue' = 'blue', 'green' = 'green'),name = '', labels = expression(lambda,  \Delta)) +
+  labs(y="", x="Assets") +
   theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), 
         axis.line.x = element_line(), axis.line.y=element_line(),
-        axis.text.x = element_text(color="black", size=12),
-        axis.text.y = element_text(color="black", size=12),
-        legend.text = element_text(size=11))  
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.text = element_text(size=14))  
 
   
 
