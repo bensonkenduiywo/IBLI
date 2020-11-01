@@ -52,7 +52,7 @@ ggplot(data = ddo, aes(x = hist)) +
                  alpha=.2) +
   geom_line(data = ddo, aes(x = hist, y = lambda, colour='blue')) + 
   geom_line(data = ddo, aes(x = hist, y = delta, colour='green')) + 
-  scale_colour_manual(values = c('blue' = 'blue', 'green' = 'green'),name = '', labels = expression(lambda,  \Delta)) +
+  scale_colour_manual(values = c('blue' = 'blue', 'green' = 'green'),name = '', labels = expression(lambda,  Delta)) +
   labs(y="", x="Assets") +
   theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), 
         axis.line.x = element_line(), axis.line.y=element_line(),
