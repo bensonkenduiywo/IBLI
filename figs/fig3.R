@@ -12,7 +12,7 @@ tvar <- paste0("mqs", tv)
 vars <- c("group", "model", "r2", tvar)
 d <- x[, vars]
 colnames(d) <- gsub(tvar, "RIB", colnames(d))
-
+d$model[d$model=='seg'] <- 'sm'
 
 png("figs/fig3.png", 800, 800, pointsize = 24)
 x11()

@@ -85,9 +85,9 @@ p2 <- ggplot(dff, aes(x=capital)) +
 
 p2
 #Combine the figures
-library("ggpubr")
-fig <- ggarrange(p1, p2,
-                    labels = c("(a)", "(b)"),
-                    ncol = 1, nrow = 2)
-fig
+#library("ggpubr")
+#fig <- ggarrange(p1, p2,
+                    #labels = c("(a)", "(b)"),
+                    #ncol = 1, nrow = 2)
+#fig
 

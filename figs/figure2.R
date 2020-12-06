@@ -54,7 +54,7 @@ ggplot(data = ddo, aes(x = hist)) +
   geom_line(data = ddo, aes(x = hist, y = delta, colour='green')) + 
   scale_colour_manual(values = c('blue' = 'blue', 'green' = 'green'),name = '', labels = expression(lambda,  Delta)) +
   labs(y="", x="Assets") +
-  theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), 
+  theme(legend.position= "right", panel.background = element_rect(fill = "white"), 
         axis.line.x = element_line(), axis.line.y=element_line(),
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
