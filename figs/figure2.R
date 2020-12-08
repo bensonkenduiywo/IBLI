@@ -49,18 +49,29 @@ ggplot(data = ddo, aes(x = hist)) +
   geom_histogram(aes(y=..ncount..),
                  col="black",
                  bins = 25,
-                 alpha=.2) +
-  geom_line(data = ddo, aes(x = hist, y = lambda, colour='blue')) + 
-  geom_line(data = ddo, aes(x = hist, y = delta, colour='green')) + 
-  scale_colour_manual(values = c('blue' = 'blue', 'green' = 'green'),name = '', labels = expression(lambda,  Delta)) +
+                 alpha=.2,
+                 fill="white") +
+  geom_line(data = ddo, aes(x = hist, y = lambda, linetype = "lambda")) + 
+  geom_line(data = ddo, aes(x = hist, y = delta, linetype = "delta")) + 
+  scale_linetype_manual(values=c("solid", "longdash"),name = '', labels = expression(lambda,  Delta))+
   labs(y="", x="Assets") +
-  theme(legend.position= "right", panel.background = element_rect(fill = "white"), 
-        axis.line.x = element_line(), axis.line.y=element_line(),
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.ticks.y=element_blank(),
-        legend.text = element_text(size=14))  
+  scale_x_continuous(expand = expansion(mult = c(0, 0)))+ 
+  #scale_y_continuous(expand = expansion(mult = c(0, 0)))+
+  scale_y_continuous(expand = c(0, 0), limits = c(-0.2, NA))+
+  theme(legend.position= "right",
+        axis.text.x=element_text(colour="black"),
+        axis.text.y=element_text(colour="black"),
+        legend.text = element_text(size=14)
+        )  
+  
+  # 
+  # theme(legend.position= "right", panel.background = element_rect(fill = "white"), 
+  #       axis.line.x = element_line(), axis.line.y=element_line(),
+  #       axis.text.x = element_blank(),
+  #       axis.text.y = element_blank(),
+  #       axis.ticks.x=element_blank(),
+  #       axis.ticks.y=element_blank(),
+  #       legend.text = element_text(size=14))  
 
   
 

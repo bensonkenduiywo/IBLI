@@ -1,6 +1,6 @@
 
-if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
-} else { setwd('C:/Users/camila/Google Drive/AfSF') }
+#if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+#} else { setwd('C:/Users/camila/Google Drive/AfSF') }
 
 x <- readRDS("reg_RIB.rds")
 
