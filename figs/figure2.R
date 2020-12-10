@@ -44,7 +44,10 @@ scale2mean <- function(x){
 ddo$lambda <- fscale(ddo$lambda)+0.15
 ddo$delta <- scale2mean(ddo$delta)-0.1
 
+
+#
 x11()
+png("figs/figure2.png", units="px", width=1600, height=1600, res=300, pointsize=24)
 ggplot(data = ddo, aes(x = hist)) +
   geom_histogram(aes(y=..ncount..),
                  col="black",
@@ -57,13 +60,21 @@ ggplot(data = ddo, aes(x = hist)) +
   labs(y="", x="Assets") +
   scale_x_continuous(expand = expansion(mult = c(0, 0)))+ 
   #scale_y_continuous(expand = expansion(mult = c(0, 0)))+
-  scale_y_continuous(expand = c(0, 0), limits = c(-0.2, NA))+
+  scale_y_continuous(expand = c(0, 0), limits = c(-0.17, NA))+
   theme(legend.position= "right",
-        axis.text.x=element_text(colour="black"),
-        axis.text.y=element_text(colour="black"),
-        legend.text = element_text(size=14)
-        )  
-  
+        panel.background = element_rect(fill = 'white',linetype = 1, colour='black'),
+        #panel.background = element_blank(),
+        axis.text.x=element_text(size=12,colour="black"),
+        axis.text.y=element_text(size=12, colour="black"),
+        axis.title=element_text(size=13),
+        legend.text = element_text(size=16),
+        legend.key=element_blank()
+        )
+dev.off()
+
+#ggsave("figs/figure2.png",dpi=300)
+
+
   # 
   # theme(legend.position= "right", panel.background = element_rect(fill = "white"), 
   #       axis.line.x = element_line(), axis.line.y=element_line(),
