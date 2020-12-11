@@ -22,10 +22,11 @@ ce_income(dff$capital_ins, rho=2)
 dff$hist <- (1-dff$mortality_rate)*5000
 
 #Make plots of perfect insurance contract
+
 x11()
 income   <- dff$capital
 c_i <- dff$capital_ins
-#png("figs/econ_fig1.png", 800, 800, pointsize = 24)
+png("figs/figure1.png", units="in", width=12, height=12, res=300, pointsize=24)
 plot(income, income, col="red", xlim=range(income), ylim=range(income), type="l",xlab="Assets (USD)", 
      ylab="Assets (USD)", lwd=1.5)
 lines(income[order(income)], c_i[order(income)], col="blue", lwd=2, lty=5)
@@ -43,8 +44,18 @@ legend("top", lty = c(1,5,4), pch=c(NA, 1, NA), lwd=c(2,2,2), col = c("red", "bl
 
 #legend("top", lty = c(1,4,5), lwd=c(2,2,2), pch = c(NA,1,NA), col = c("red", "green",'blue'), 
        #legend=c('Asset without insurance', 'Asset with insurance','Mortality PDF'))
-#dev.off()
+dev.off()
 
+
+# h <- hist(dff$hist, breaks = 30, plot=FALSE)
+# h$counts=h$counts/sum(h$counts)
+# plot(h)
+# x1 = income
+# y1 = rescale(income, to = c(0, 0.15))
+# lines(x1[order(x1)], y1[order(x1)], col="red", lwd=2, lty=5)
+# y2 = rescale(c_i, to = c(0, 0.15))
+# lines(x1[order(x1)], y2[order(x1)], col="blue", lwd=2, lty=5)
+# points(x1, y2, col="blue", pch=1, cex=1)
 
 # #Perfect Insurance Histogram
 # x11()
@@ -63,7 +74,8 @@ ggplot(data = dff,  aes(x = capital, y= capital)) +
   geom_point(aes(y = capital_ins), color='blue', shape=1,size=2)+
   geom_line(aes(y= capital), size=0.9, linetype='dotdash')+
   geom_line(data=pdf, aes(x=x,y= y), size=0.9, linetype='longdash')
-library(pBrackets) 
+library(pBrackets)
+#grid.locator(unit="native") 
 grid.brackets(292, 363, 292, 244, lwd=2, col="red")
 
 # ggplot(dff) +

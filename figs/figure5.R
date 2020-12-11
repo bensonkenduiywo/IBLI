@@ -24,6 +24,7 @@ char <- (1:6)[match(d$group, ug)]
 
 
 x11()
+png("figs/figure5.png", units="in", width=12, height=12, res=300, pointsize=24)
 par(mar=c(4, 4, 1, 1))
 plot(d[,3:4], type="n", xlab = expression(R^2),cex=.8,
 	xlim=c(0,0.7), ylim=c(0,0.7), las=1, asp=1, xaxs="i", yaxs="i")
@@ -32,5 +33,5 @@ abline(0,1, col="light gray", lwd=2, lty=3)
 points(d[,3:4], pch=char, col=cols, cex=1.1)
 legend("topleft", legend=ug, pt.cex=1.1, pch=1:6, bty="n", cex=.8, inset=c(.02, 0))
 legend("topleft", legend=um, pch=20, pt.cex=1.5, col=pal, bty="n", cex=.8, inset=c(.15, 0))
-
+dev.off()
 
