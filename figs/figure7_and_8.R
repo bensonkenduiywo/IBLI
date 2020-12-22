@@ -1,10 +1,14 @@
+
+if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+} else { }
+rm(list=ls(all=TRUE))
+
 #========================================================================
 #0.0 Load data
 #========================================================================
-rm(list=ls(all=TRUE))
 dff <- readRDS("m_data.rds")
 dff <- na.omit(dff)
-library(ggplot2)
+#library(ggplot2)
 #========================================================================
 #1.0 Perfect Insurance contract
 #========================================================================
@@ -133,70 +137,96 @@ df0$class.lMD[df0$lm5lMD_ins %in% v]  <- "Type4"
 # grid.arrange(p1, p2, nrow=2)
 
 
-x11()
-png("figs/figure7.png", units="in", width=12, height=12, res=300, pointsize=24)
-par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.0, 1)) #c(bottom, left, top, right)
+#x11()
+
 classes <- c("Type0", "Type1", "Type2", "Type3", "Type4")
+
+
+png("figs/figure7.png", units="in", width=12, height=6, res=600, pointsize=18)
+
+
+par(mfrow=c(1, 2), mar=c(4, 4, 1, 0)) #c(bottom, left, top, right)
+
 pcols <- cols[match(dff$class, classes)]
 sy <- c(18, 17, 15, 9, 7)
 sch1 <- sy[match(dff$class, classes)]
-plot(zlrain_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset (USD)', 
-     ylab='Asset (USD)', cex.axis=1.0, cex.lab=1.1, xlim =c(300,1000), 
-     ylim=c(300,1000), main='(a)', cex.main=1.0)
 x=dff$capital
 y=dff$perfect_ins
+
+plot(zlrain_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Assets without insurance ($)', ylab='Assets with insurance ($)',xlim =c(300,1000), ylim=c(300,1000), main='(a)', cex.main=1.0, axes=FALSE, xaxs="i", yaxs="i")
+axis(1, cex.axis=.8)
+axis(2, las=1, cex.axis=.8)
+
 lines(x,x,lwd=1.2)
 lines(x[order(x)],y[order(x)],lwd=2,lty=2)
+legend(700,550, pch=c(18, 17, 15, 9, 7, 10), col = cols, 
+       legend=c('True Negatives', 'Severe False Negatives','Intermediate False Negatives', 'Small False Negative', 'False Positives'), bty="n", 
+       xpd = NA, pt.cex = .7, cex=0.7, title="Insurance contract", title.adj=0.1)
+
 
 #==== p2
 pcols <- cols[match(df0$class.lMD, classes)]
 sch1 <- sy[match(df0$class.lMD, classes)]
-plot(lm5lMD_ins~capital, data = df0, col=pcols, pch=sch1, xlab='Asset (USD)', 
-     ylab='Asset (USD)', cex.axis=1.0, cex.lab=1.1, xlim =c(300,1000), 
-     ylim=c(300,1000), main='(b)', cex.main=1.0)
 x=df0$capital
 y=df0$perfect_ins
+
+
+par(mar=c(4, 1.5, 1, 2.5)) #c(bottom, left, top, right)
+
+plot(lm5lMD_ins~capital, data = df0, col=pcols, pch=sch1, xlab='Assets without insurance ($)', ylab="", axes=FALSE, xlim =c(300,1000), 
+     ylim=c(300,1000), main='(b)', cex.main=1.0, xaxs="i", yaxs="i")
+axis(1, cex.axis=.8)
+axis(4, las=1, cex.axis=.8)
 lines(x,x,lwd=1.2)
 lines(x[order(x)],y[order(x)],lwd=2,lty=2)
 
-
-par(fig = c(0, 1, 0, 1), mar = c(11, 6.5, 0, 6.5), new = TRUE)
-plot.new()
-#plot(0, 0, type = 'n', bty = 'n', xaxt = 'n', yaxt = 'n')
-legend("bottomright", pch=c(18, 17, 15, 9, 7, 10), col = cols, 
-       legend=c('True Negatives', 'Severe False Negatives','Intermediate False Negatives',
-                'Small False Negative', 'False Positives'), bty="n", 
-       xpd = T, pt.cex = 1, cex=1.0)
-legend("bottomleft", lwd=1.5, lty = c(1,2), 
+	   
+legend(675, 425, lwd=1.5, lty = c(1,2), 
        legend=c('No insurance', 'Perfect insurance'), bty="n",xpd = T,
-       pt.cex = 1, cex=1.0)
+       pt.cex = 1, cex=.7)
+
 dev.off()
 
 #========================================================================
 #Figure 7; predictive skill of the two models
 #========================================================================
 #make a plot of predictive skill for sm using log transformed Z-scored rainfall
-x11()
-png("figs/figure8.png", units="in", width=12, height=12, res=300, pointsize=24)
-par(mfrow=c(1, 2), mar=c(18.5, 4, 1.8, 0.5)) #c(bottom, left, top, right)
+
+png("figs/figure8.png", units="in", width=12, height=6, res=600, pointsize=18)
+
+par(mfrow=c(1, 2), mar=c(4,4,1,1)) #c(bottom, left, top, right)
 dff <- dff[dff$zlmodis< -0.5,]
 x <- dff$mortality_rate
 y <- dff$zlrain_mortality
 plot(x*100, y*100, pch=16, xlab="Observed loss (%)", ylab="Predicted loss (%)",
-     main="(a)", cex.axis=0.85, cex.lab=0.9, cex.main=0.9, cex=0.65)
-abline(0, 1, lwd=1.5, col="blue")
+     main="(a)", cex.axis=0.85, cex.lab=0.9, cex.main=0.9, cex=0.65, xlim=c(0,70), ylim=c(0,70), las=1, axes=FALSE, xaxs="i", yaxs="i")
+axis(1, cex.axis=0.85)
+axis(2, cex.axis=0.85, las=2)
+
+abline(0, 1, lwd=1.5, col="gray", lty=2)
 abline(h=23, col="red")
 abline(v=23, col="red")
+text(60,65,"y=x",col="gray")
 x <- df0$mortality_rate
 y <- df0$lm5lMD_mortality
 #make a plot of predictive skill for lm5 model based on log transformed MODIS (lMD)
 
+par(mar=c(4,1,1,4)) #c(bottom, left, top, right)
+
 plot(x*100, y*100, pch=16, xlab="Observed loss (%)", ylab="Predicted loss (%)",
-     main="(b)", cex.axis=0.85, cex.lab=0.9, cex.main=0.9, cex=0.65)
-abline(0, 1, lwd=1.5, col="blue")
+     main="(b)",  cex.lab=0.9, cex.main=0.9, cex=0.65, xlim=c(0,70), ylim=c(0,70), xaxs="i", yaxs="i", axes=FALSE)
+axis(1, cex.axis=0.85)
+axis(4, cex.axis=0.85, las=1)
+
+abline(0, 1, lwd=1.5, col="gray", lty=2)
 abline(h=23, col="red")
 abline(v=23, col="red")
+text(60,65,"y=x",col="gray")
+
 dev.off()
+
+
+
 #ALTERNATIVE PLOT
 # x11()
 # plot(dff$capital,dff$capital,xlab="Assets (USD)", ylab="Assets (USD)", type="n")
