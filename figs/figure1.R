@@ -28,7 +28,7 @@ c_i <- dff$capital_ins
 
 #Make plots of perfect insurance contract
 
-#x11()
+
 png("figs/figure1.png", units="in", width=12, height=12, res=300, pointsize=24)
 
 plot(income, income, col="red", xlim=range(income), ylim=range(income), type="l",xlab="Assets (USD)", ylab="Assets (USD)", lwd=1.5)
@@ -48,10 +48,11 @@ pdf$y <- rescale(pdf$y, to = c(min(income), max(income)))
 lines(pdf, col = "black", lty=4, lwd=2) 
 legend("topleft", lty = c(1,5,4), pch=c(NA, 1, NA), lwd=c(2,2,2), col = c("red", "blue",'black'), legend=c('Asset without insurance', 'Asset with insurance','Asset PDF'), bty="n")
 
+dev.off()
+
 #legend("top", lty = c(1,4,5), lwd=c(2,2,2), pch = c(NA,1,NA), col = c("red", "green",'blue'), 
        #legend=c('Asset without insurance', 'Asset with insurance','Mortality PDF'))
 
-dev.off()
 
 
 # h <- hist(dff$hist, breaks = 30, plot=FALSE)
@@ -73,19 +74,19 @@ dev.off()
 # 
 # 
 # 
-dd <- data.frame(pdf= pdf, income=dff$capital, insurance=dff$capital_ins)
-library(ggplot2)
-x11()
-ggplot(data = dff,  aes(x = capital, y= capital)) +
-  geom_line(aes(y= capital_ins), size=0.9, color='blue') +
-  geom_point(aes(y = capital_ins), color='blue', shape=1,size=2)+
-  geom_line(aes(y= capital), size=0.9, linetype='dotdash')+
-  geom_line(data=pdf, aes(x=x,y= y), size=0.9, linetype='longdash')
-library(pBrackets)
-#grid.locator(unit="native") 
-grid.brackets(292, 363, 292, 244, lwd=2, col="red")
+# dd <- data.frame(pdf= pdf, income=dff$capital, insurance=dff$capital_ins)
+# library(ggplot2)
+# x11()
+# ggplot(data = dff,  aes(x = capital, y= capital)) +
+  # geom_line(aes(y= capital_ins), size=0.9, color='blue') +
+  # geom_point(aes(y = capital_ins), color='blue', shape=1,size=2)+
+  # geom_line(aes(y= capital), size=0.9, linetype='dotdash')+
+  # geom_line(data=pdf, aes(x=x,y= y), size=0.9, linetype='longdash')
+# library(pBrackets)
+##grid.locator(unit="native") 
+# grid.brackets(292, 363, 292, 244, lwd=2, col="red")
 
-# ggplot(dff) +
-#   geom_density(aes(x=capital_ins), col='red')
+##ggplot(dff) +
+##  geom_density(aes(x=capital_ins), col='red')
 
 
