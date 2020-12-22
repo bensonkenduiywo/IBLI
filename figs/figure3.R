@@ -1,10 +1,13 @@
 
-# if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
-# } else { setwd('C:/Users/camila/Google Drive/AfSF') }
+if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+} else {  }
+rm(list=ls(all=TRUE))
+
 
 library(dplyr)
 library(raster)
 library(agro)
+library(segmented)
 
 n <- agrodata::data_ibli("marsabit_avhrr_ndvi") #NOAA
 colnames(n)[1:5]
@@ -93,26 +96,27 @@ regfun <- function(x, y, main="", label="", ylab="") {
   df0 <- df[df$x<0,]
   df5 <- df[df$x < -0.5,]
  
-	xlab <- paste0("z-score (", main, ")")
+	xlab <- paste0("Z-score (", main, ")")
  
-	plot(y~x, pch=16, main=label, cex=0.9, cex.main=1.2, cex.axis=0.8, 
+	plot(y~x, pch=16, main=label, cex=0.5, cex.main=1.2, cex.axis=0.8, 
 	cex.lab=1.2, xlab="", ylab="", las=1)
 
 	title(xlab=xlab, line=2)
 	title(ylab=ylab, line=3)
 
+  wd = 4
   ml <- lm(y~x, data=df)
-  abline(ml, col="magenta", lwd=3, lty=2)  
+  abline(ml, col="magenta", lwd=wd, lty=2)  
   ml2 <- lm(y~x, data=df0)
-  abline(ml2, col="blue", lwd=3, lty=3)  
+  abline(ml2, col="blue", lwd=wd, lty=3)  
   ml5 <- lm(y~x, data=df5)
-  abline(ml5, col="green", lwd=3, lty=4)  
+  abline(ml5, col="green", lwd=wd, lty=4)  
 
   sm <- segmented(ml, seg.Z = ~x, psi=0)
-  plot.segmented(sm, add=T, lwd=2, lty=1, col="red") 
+  plot.segmented(sm, add=T, lwd=wd-1, lty=1, col="red") 
   
 	if (label == "(c)") {  
-	  legend("topright", c("lm", "lm0", "lm5", "sm"), col=c("magenta", "blue", "green", "red"), lwd=c(3,3,3,2), lty=c(2,3,4,1)) #, bty="n")
+	  legend("topright", c("lm", "lm0", "lm5", "sm"), col=c("magenta", "blue", "green", "red"), lwd=c(wd,wd,wd,wd-1), lty=c(2,3,4,1)) #, bty="n")
 	}
 }
 
@@ -124,9 +128,9 @@ regfun(dff$znoaa, dff$mortality_rate, "NO", "(a)", ylab="mortality rate")
 regfun(dff$zrain, dff$mortality_rate, "RN", "(b)")
 regfun(dff$zmodis, dff$mortality_rate, "MD", "(c)")
 
-regfun(dff$zlnoaa, dff$mortality_rate, "lNO", "(d)", ylab="mortality rate")
-regfun(dff$zlrain, dff$mortality_rate, "lRN", "(e)")
-regfun(dff$zlmodis, dff$mortality_rate, "lMD", "(f)")
+regfun(dff$zlnoaa, dff$mortality_rate, "LNO", "(d)", ylab="mortality rate")
+regfun(dff$zlrain, dff$mortality_rate, "LRN", "(e)")
+regfun(dff$zlmodis, dff$mortality_rate, "LMD", "(f)")
 dev.off()
 
 

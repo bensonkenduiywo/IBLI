@@ -1,6 +1,8 @@
 
-#if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
-#} else { setwd('C:/Users/camila/Google Drive/AfSF') }
+if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+} else { }
+
+rm(list=ls(all=TRUE))
 
 x <- readRDS("reg_RIB.rds")
 
@@ -13,8 +15,10 @@ vars <- c("group", "model", "r2", tvar)
 d <- x[, vars]
 colnames(d) <- gsub(tvar, "RIB", colnames(d))
 d$model[d$model=='seg'] <- 'sm'
-x11()
+
+
 png("figs/figure4.png", units="in", width=12, height=12, res=300, pointsize=24)
+
 par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
 boxplot(r2~model, data=d, ylab = expression(R^2), xlab="", las=1, main="(a)", cex.axis=.9)
 title(xlab="Model", line=2)
@@ -25,5 +29,6 @@ boxplot(r2~group, data=d, ylab = expression(R^2), xlab="", las=1, main="(c)", ce
 title(xlab="Predictor", line=2)
 boxplot(RIB~group, data=d, xlab="", las=1, main="(d)", cex.axis=.9)
 title(xlab="Predictor", line=2)
+
 dev.off()
 

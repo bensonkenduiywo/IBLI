@@ -1,6 +1,7 @@
 
 if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
 } else { setwd('') }
+rm(list=ls(all=TRUE))
 
 dff <- readRDS("m_data.rds")
 dff <- na.omit(dff)
@@ -38,8 +39,8 @@ points(income, c_i, col="blue", pch=1, cex=1)
 curly(x=3320, y=3500, len= 200, lty=1, lwd=1.5, theta=pi)
 text(x = 2650, y = 3500, expression(paste(symbol(Delta),' = I(',theta,')-p>0')), cex=1.2)
 
-curly(x=4000, y=3950, len= 100, wid=50,lty=1, lwd=4, col="white", theta=pi)
-curly(x=4000, y=3950, len= 100, wid=50,lty=1, lwd=1.5,theta=pi)
+curly(x=4000, y=3950, len= 80, wid=50,lty=1, lwd=4, col="white", theta=pi)
+curly(x=4000, y=3950, len= 80, wid=50,lty=1, lwd=1.5,theta=pi)
 text(x = 3500, y = 3940, expression(paste(symbol(Delta),' = -p<0')), cex=1.2)
 
 pdf <- data.frame(x=density(dff$hist)$x, y=density(dff$hist)$y)

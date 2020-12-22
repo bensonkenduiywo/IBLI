@@ -1,6 +1,8 @@
-#========================================================================
+
+if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+} else { }
+
 rm(list=ls(all=TRUE))
-unlink('.Rdata')
 
 x <- readRDS("reg_RIB.rds")
 z <- readRDS("perfect.rds")
