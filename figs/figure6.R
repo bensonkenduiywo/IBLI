@@ -1,7 +1,12 @@
+
+if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+} else { }
+rm(list=ls(all=TRUE))
+
 #========================================================================
 #0.0 Load data
 #========================================================================
-rm(list=ls(all=TRUE))
+
 dff <- readRDS("m_data.rds")
 
 dff <- na.omit(dff)
@@ -38,7 +43,6 @@ dff$Modis_ins <- (dff$capital + dff$zlmodis_payouts) - premium
 #3.0 Plot perfect insurance superimposed on MODIS (best) index Insurance contract
 #========================================================================
 dff$Modis_ins <- round(dff$Modis_ins,3)
-library(ggplot2)
 #x11()
 dff$class <- "Type0"
 v <- c(370.694,467.904,677.168,686.861,691.013,704.738,715.484,715.572,725.987)
@@ -79,18 +83,21 @@ pcols <- cols[match(dff$class, classes)]
 #sy <- c(18, 17, 15, 9, 7, 10)
 sy <- c(18, 17, 15, 9, 7)
 sch1 <- sy[match(dff$class, classes)]
-x11()
+
+
+
 png("figs/figure6.png", units="in", width=12, height=12, res=300, pointsize=24)
-plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset (USD)', 
-     ylab='Asset (USD)', cex.axis=1.0, cex.lab=1.2, xlim =c(300,1000), ylim=c(300,1000))
+
+plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset without insurance ($)', ylab='Asset with insurance ($)', cex.axis=1.0, cex.lab=1.2, xlim =c(300,1000), ylim=c(300,1000), las=1)
 x=dff$capital
 y=dff$perfect_ins
 lines(x,x,lwd=1.2)
 lines(x[order(x)],y[order(x)],lwd=2,lty=2)
-legend("bottomleft", lwd=1.5, lty = c(1,2), 
+legend(700, 550, lwd=1.5, lty = c(1,2), cex=.8,
        legend=c('No insurance', 'Perfect insurance'), bty="n", merge = T)
-legend("bottomright", pch=c(18, 17, 15, 9, 7, 10), col = cols, 
-       legend=c('True Negatives', 'Severe False Negatives','Intermediate False Negatives',
-                'Small False Negative', 'False Positives'), bty="n")
 
+legend("bottomright", pch=c(18, 17, 15, 9, 7, 10), col = cols, cex=0.8,
+       legend=c('True Negatives', 'Severe False Negatives','Intermediate False Negatives','Small False Negative', 'False Positives'), bty="n", 
+	   title="Example insurance contract", title.adj=0.1)
+	   
 dev.off()
