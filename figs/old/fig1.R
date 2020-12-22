@@ -1,6 +1,6 @@
 
 if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
-} else { setwd('C:/Users/camila/Google Drive/AfSF') }
+} else { setwd('---benson---') }
 
 library(geodata)
 ken0 <- geodata::gadm("KEN", level=0, "data")

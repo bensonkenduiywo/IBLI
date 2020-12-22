@@ -1,5 +1,7 @@
-rm(list=ls(all=TRUE))
-unlink(".RData") 
+
+if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
+} else { setwd('') }
+
 dff <- readRDS("m_data.rds")
 dff <- na.omit(dff)
 #Perfect Insurance contract
@@ -21,29 +23,34 @@ ce_income(dff$capital_ins, rho=2)
 #
 dff$hist <- (1-dff$mortality_rate)*5000
 
-#Make plots of perfect insurance contract
-
-x11()
 income   <- dff$capital
 c_i <- dff$capital_ins
+
+#Make plots of perfect insurance contract
+
+#x11()
 png("figs/figure1.png", units="in", width=12, height=12, res=300, pointsize=24)
-plot(income, income, col="red", xlim=range(income), ylim=range(income), type="l",xlab="Assets (USD)", 
-     ylab="Assets (USD)", lwd=1.5)
+
+plot(income, income, col="red", xlim=range(income), ylim=range(income), type="l",xlab="Assets (USD)", ylab="Assets (USD)", lwd=1.5)
 lines(income[order(income)], c_i[order(income)], col="blue", lwd=2, lty=5)
 points(income, c_i, col="blue", pch=1, cex=1)
+
 curly(x=3320, y=3500, len= 200, lty=1, lwd=1.5, theta=pi)
-text(x = 2850, y = 3500, expression(paste(symbol(Delta),'=I(',theta,')-p>0')), cex=1.2)
-curly(x=4000, y=3950, len= 100, wid=50,lty=1, lwd=1.5,theta=pi*2)
-text(x = 4360, y = 3940, expression(paste(symbol(Delta),'=-p<0')), cex=1.2)
+text(x = 2650, y = 3500, expression(paste(symbol(Delta),' = I(',theta,')-p>0')), cex=1.2)
+
+curly(x=4000, y=3950, len= 100, wid=50,lty=1, lwd=4, col="white", theta=pi)
+curly(x=4000, y=3950, len= 100, wid=50,lty=1, lwd=1.5,theta=pi)
+text(x = 3500, y = 3940, expression(paste(symbol(Delta),' = -p<0')), cex=1.2)
+
 pdf <- data.frame(x=density(dff$hist)$x, y=density(dff$hist)$y)
 pdf$x <- rescale(pdf$x, to = c(min(income), max(income)))
 pdf$y <- rescale(pdf$y, to = c(min(income), max(income)))
 lines(pdf, col = "black", lty=4, lwd=2) 
-legend("top", lty = c(1,5,4), pch=c(NA, 1, NA), lwd=c(2,2,2), col = c("red", "blue",'black'), 
-       legend=c('Asset without insurance', 'Asset with insurance','Asset PDF'), bty="n")
+legend("topleft", lty = c(1,5,4), pch=c(NA, 1, NA), lwd=c(2,2,2), col = c("red", "blue",'black'), legend=c('Asset without insurance', 'Asset with insurance','Asset PDF'), bty="n")
 
 #legend("top", lty = c(1,4,5), lwd=c(2,2,2), pch = c(NA,1,NA), col = c("red", "green",'blue'), 
        #legend=c('Asset without insurance', 'Asset with insurance','Mortality PDF'))
+
 dev.off()
 
 
