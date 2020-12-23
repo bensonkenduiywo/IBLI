@@ -36,10 +36,10 @@ h <- hist(dff$hist, breaks=20, plot=FALSE)
 h$counts <- fscale(h$density) *.8
 
 #
-png("figs/figure2.png", units="px", width=1600, height=1600, res=300, pointsize=16)
+png("figs/figure2.png", units="px", width=2000, height=2000, res=300, pointsize=16)
 
 par(mai=c(1.1,1,0.5,0.5))
-plot(h, ylab="???", xlab="Assets ($)", las=1, yaxs="i", xaxs="i", ylim=c(-0.2,1), xlim=c(1600,5000), main="")
+plot(h, ylab="Relative assets ($)", xlab="Assets ($)", las=1, yaxs="i", xaxs="i", ylim=c(-0.2,1), xlim=c(1600,5000), main="")
 box()
 lines(lambda~hist, data=ddo, lty=2)
 lines(delta~hist, data=ddo)

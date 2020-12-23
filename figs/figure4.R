@@ -5,6 +5,9 @@ if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
 rm(list=ls(all=TRUE))
 
 x <- readRDS("reg_RIB.rds")
+x$group[x$group=='lMD'] <- 'LMD'
+x$group[x$group=='lNO'] <- 'LNO'
+x$group[x$group=='lRN'] <- 'LRN'
 
 #z <- readRDS("rmd/perfect.rds")
 
