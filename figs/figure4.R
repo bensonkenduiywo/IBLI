@@ -28,9 +28,9 @@ title(xlab="Model", line=2)
 boxplot(RIB~model, data=d, xlab="", las=1, main="(b)", cex.axis=.9)
 title(xlab="Model", line=2)
 
-boxplot(r2~group, data=d, ylab = expression(R^2), xlab="", las=1, main="(c)", cex.axis=.9)
+boxplot(r2~group, data=d, ylab = expression(R^2), xlab="", las=1, main="(c)", cex.axis=.81)
 title(xlab="Predictor", line=2)
-boxplot(RIB~group, data=d, xlab="", las=1, main="(d)", cex.axis=.9)
+boxplot(RIB~group, data=d, xlab="", las=1, main="(d)", cex.axis=.81)
 title(xlab="Predictor", line=2)
 
 dev.off()
