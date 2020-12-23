@@ -1,14 +1,9 @@
-
-if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
-} else { }
-rm(list=ls(all=TRUE))
-
 #========================================================================
 #0.0 Load data
 #========================================================================
+rm(list=ls(all=TRUE))
 dff <- readRDS("m_data.rds")
 dff <- na.omit(dff)
-#library(ggplot2)
 #========================================================================
 #1.0 Perfect Insurance contract
 #========================================================================
@@ -63,23 +58,6 @@ dff$class[dff$zlrain_ins %in% v]  <- "Type4"
 #4.0 Plot contract in 2 above over perfect model
 #========================================================================
 cols <- c("black","red", "blue", "green", "purple","cyan")
-# p1 <- ggplot(dff, aes(x=capital)) +
-#   xlim(300, 1000) +
-#   ylim(300, 1000) +
-#   geom_point(aes(y=zlrain_ins, colour=class, shape=class), size=1.5)+
-#   scale_colour_manual(values=cols)+
-#   geom_line(aes(y=capital, linetype ="No insurance"), size=0.7) +
-#   geom_line(aes(y=perfect_ins, linetype ="Perfect insurance"), size=0.7)+
-#   labs(y="Assets (USD)", x="Assets (USD)",title = "(a)") +
-#   scale_linetype_manual(name="", values=c("No insurance"=1,"Perfect insurance"=2))+
-#   theme(panel.background = element_rect(fill = "white"), 
-#         legend.title = element_blank(),
-#         axis.line.x=element_line(), axis.line.y=element_line(),
-#         axis.text.x = element_text(color="black", size=12),
-#         axis.text.y = element_text(color="black", size=12),
-#         legend.text=element_text(size=11), 
-#         plot.title = element_text(hjust = 0.5,face = "bold"))
-
 #========================================================================
 #5.0 lMD+lm5 contract (R2=0.418, RIB=0.49886841)
 #========================================================================
@@ -111,32 +89,6 @@ df0$class.lMD[df0$lm5lMD_ins %in% v]  <- "Type4"
 #v <- c(936.100,946.541, 946.650, 855.321, 783.652)
 #df0$class.lMD[df0$lm5lMD_ins %in% v]  <- "Type5"
 
-#========================================================================
-#8.0 Plot contract in 5 above over perfect model
-#========================================================================
-# p2 <- ggplot(df0, aes(x=capital)) +
-#   xlim(300, 1000) +
-#   ylim(300, 1000) +
-#   geom_point(aes(y=df0$lm5lMD_ins, colour=class.lMD, shape=class.lMD), size=1.5)+
-#   scale_colour_manual(values=cols)+
-#   geom_line(aes(y=capital, linetype ="No insurance"), size=0.7) +
-#   geom_line(aes(y=perfect_ins, linetype ="Perfect insurance"), size=0.7)+
-#   labs(y="Assets (USD)", x="Assets (USD)",title = "(b)") +
-#   scale_linetype_manual(name="", values=c("No insurance"=1,"Perfect insurance"=2))+
-#   theme(panel.background = element_rect(fill = "white"), 
-#         legend.title = element_blank(),
-#         axis.line.x=element_line(), axis.line.y=element_line(),
-#         axis.text.x = element_text(color="black", size=12),
-#         axis.text.y = element_text(color="black", size=12),
-#         legend.text=element_text(size=11), 
-#         plot.title = element_text(hjust = 0.5,face = "bold"))
-# 
-# #Form figure 6
-# library(gridExtra)
-# x11()
-# grid.arrange(p1, p2, nrow=2)
-
-
 #x11()
 
 classes <- c("Type0", "Type1", "Type2", "Type3", "Type4")
@@ -154,14 +106,14 @@ x=dff$capital
 y=dff$perfect_ins
 
 plot(zlrain_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Assets without insurance ($)', ylab='Assets with insurance ($)',xlim =c(300,1000), ylim=c(300,1000), main='(a)', cex.main=1.0, axes=FALSE, xaxs="i", yaxs="i")
-axis(1, cex.axis=.8)
-axis(2, las=1, cex.axis=.8)
+axis(1, cex.axis=.83)
+axis(2, las=1, cex.axis=.83)
 
 lines(x,x,lwd=1.2)
 lines(x[order(x)],y[order(x)],lwd=2,lty=2)
 legend(700,550, pch=c(18, 17, 15, 9, 7, 10), col = cols, 
        legend=c('True Negatives', 'Severe False Negatives','Intermediate False Negatives', 'Small False Negative', 'False Positives'), bty="n", 
-       xpd = NA, pt.cex = .7, cex=0.7, title="Insurance contract", title.adj=0.1)
+       xpd = NA, pt.cex = .8, cex=0.8, title="Insurance contract", title.adj=0.1)
 
 
 #==== p2
@@ -173,17 +125,17 @@ y=df0$perfect_ins
 
 par(mar=c(4, 1.5, 1, 2.5)) #c(bottom, left, top, right)
 
-plot(lm5lMD_ins~capital, data = df0, col=pcols, pch=sch1, xlab='Assets without insurance ($)', ylab="", axes=FALSE, xlim =c(300,1000), 
+plot(lm5lMD_ins~capital, data = df0, col=pcols, pch=sch1, 
+     xlab='Assets without insurance ($)', ylab="", axes=FALSE,xlim =c(300,1000), 
      ylim=c(300,1000), main='(b)', cex.main=1.0, xaxs="i", yaxs="i")
-axis(1, cex.axis=.8)
-axis(4, las=1, cex.axis=.8)
+axis(1, cex.axis=.83)
+axis(4, las=1, cex.axis=.83)
 lines(x,x,lwd=1.2)
 lines(x[order(x)],y[order(x)],lwd=2,lty=2)
 
-	   
-legend(675, 425, lwd=1.5, lty = c(1,2), 
+legend(665, 425, lwd=1.5, lty = c(1,2), 
        legend=c('No insurance', 'Perfect insurance'), bty="n",xpd = T,
-       pt.cex = 1, cex=.7)
+       pt.cex = .8, cex=.8)
 
 dev.off()
 
@@ -224,14 +176,3 @@ abline(v=23, col="red")
 text(60,65,"y=x",col="gray")
 
 dev.off()
-
-
-
-#ALTERNATIVE PLOT
-# x11()
-# plot(dff$capital,dff$capital,xlab="Assets (USD)", ylab="Assets (USD)", type="n")
-# cola <- c("black","red", "blue", "green", "purple","yellow")[dff$class]
-# points(dff$capital,dff$zlrain_ins,col=cola, pch=16,cex=0.7)
-# lines(dff$capital,dff$capital,lty=1,col="black")
-# z <- dff$zlrain_ins
-# lines(dff$capital,dff$zlrain_ins,lty=2,col="black")

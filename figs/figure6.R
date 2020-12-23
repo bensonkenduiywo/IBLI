@@ -1,12 +1,7 @@
-
-if (system('hostname', TRUE) == "LAPTOP-IVSPBGCA") { setwd('C:/github/IBLI')
-} else { }
-rm(list=ls(all=TRUE))
-
 #========================================================================
 #0.0 Load data
 #========================================================================
-
+rm(list=ls(all=TRUE))
 dff <- readRDS("m_data.rds")
 
 dff <- na.omit(dff)
@@ -43,6 +38,7 @@ dff$Modis_ins <- (dff$capital + dff$zlmodis_payouts) - premium
 #3.0 Plot perfect insurance superimposed on MODIS (best) index Insurance contract
 #========================================================================
 dff$Modis_ins <- round(dff$Modis_ins,3)
+library(ggplot2)
 #x11()
 dff$class <- "Type0"
 v <- c(370.694,467.904,677.168,686.861,691.013,704.738,715.484,715.572,725.987)
@@ -58,37 +54,16 @@ dff$class[dff$Modis_ins %in% v]  <- "Type4"
 #dff$class[dff$Modis_ins %in% v]  <- "Type5"
 #cols <- c("black","red", "blue", "green", "purple","cyan")
 cols <- c("black","red", "blue", "green", "purple")
-#p < - c(1, 2, 3, 4, 5, 6)
-# ggplot(dff, aes(x=capital)) +
-#   xlim(300, 1000) +
-#   ylim(300, 1000) +
-#   geom_point(aes(y=Modis_ins, colour=class, shape=class), size=1.8)+
-#   scale_colour_manual(values=cols)+
-#   #scale_shape_manual(values=p)+
-#   #guides("Type1", "Type2","Type3","Type4","Type5")
-#   geom_line(aes(y=capital, linetype ="No insurance"), size=0.7) +
-#   geom_line(aes(y=perfect_ins, linetype ="Perfect insurance"), size=0.7)+
-#   labs(y="Assets (USD)", x="Assets (USD)") +
-#   scale_linetype_manual(name="", values=c("No insurance"=1,"Perfect insurance"=2))+
-#   theme(legend.position= "bottom", panel.background = element_rect(fill = "white"), 
-#         legend.title = element_blank(),
-#         axis.line.x=element_line(), axis.line.y=element_line(),
-#         axis.text.x = element_text(color="black", size=12),
-#         axis.text.y = element_text(color="black", size=12),
-#         legend.text=element_text(size=11))  
-
 classes <- c("Type0", "Type1", "Type2", "Type3", "Type4")
 #classes <- c("Type0", "Type1", "Type2", "Type3", "Type4", "Type5")
 pcols <- cols[match(dff$class, classes)]
 #sy <- c(18, 17, 15, 9, 7, 10)
 sy <- c(18, 17, 15, 9, 7)
 sch1 <- sy[match(dff$class, classes)]
-
-
-
+#x11()
 png("figs/figure6.png", units="in", width=12, height=12, res=300, pointsize=24)
-
-plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset without insurance ($)', ylab='Asset with insurance ($)', cex.axis=1.0, cex.lab=1.2, xlim =c(300,1000), ylim=c(300,1000), las=1)
+plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset (USD)', 
+     ylab='Asset (USD)', cex.axis=1.0, cex.lab=1.2, xlim =c(300,1000), ylim=c(300,1000))
 x=dff$capital
 y=dff$perfect_ins
 lines(x,x,lwd=1.2)
@@ -98,6 +73,6 @@ legend(700, 550, lwd=1.5, lty = c(1,2), cex=.8,
 
 legend("bottomright", pch=c(18, 17, 15, 9, 7, 10), col = cols, cex=0.8,
        legend=c('True Negatives', 'Severe False Negatives','Intermediate False Negatives','Small False Negative', 'False Positives'), bty="n", 
-	   title="Example insurance contract", title.adj=0.1)
-	   
+       title="Example insurance contract", title.adj=0.1)
+
 dev.off()
