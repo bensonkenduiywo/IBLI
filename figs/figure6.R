@@ -38,7 +38,6 @@ dff$Modis_ins <- (dff$capital + dff$zlmodis_payouts) - premium
 #3.0 Plot perfect insurance superimposed on MODIS (best) index Insurance contract
 #========================================================================
 dff$Modis_ins <- round(dff$Modis_ins,3)
-library(ggplot2)
 #x11()
 dff$class <- "Type0"
 v <- c(370.694,467.904,677.168,686.861,691.013,704.738,715.484,715.572,725.987)
@@ -62,8 +61,8 @@ sy <- c(18, 17, 15, 9, 7)
 sch1 <- sy[match(dff$class, classes)]
 #x11()
 png("figs/figure6.png", units="in", width=12, height=12, res=300, pointsize=24)
-plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset (USD)', 
-     ylab='Asset (USD)', cex.axis=1.0, cex.lab=1.2, xlim =c(300,1000), ylim=c(300,1000))
+plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset ($)', 
+     ylab='Asset ($)', cex.axis=0.8, cex.lab=0.9, xlim =c(300,1000), ylim=c(300,1000))
 x=dff$capital
 y=dff$perfect_ins
 lines(x,x,lwd=1.2)
