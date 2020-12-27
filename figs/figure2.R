@@ -37,9 +37,10 @@ h$counts <- fscale(h$density) *.8
 
 #
 png("figs/figure2.png", units="px", width=2000, height=2000, res=300, pointsize=16)
-
+#ylab 'Scaled value of assets'
 par(mai=c(1.1,1,0.5,0.5))
-plot(h, ylab="Relative assets ($)", xlab="Assets ($)", las=1, yaxs="i", xaxs="i", ylim=c(-0.2,1), xlim=c(1600,5000), main="")
+plot(h, ylab="Scaled value of assets", xlab="Assets ($)", las=1, yaxs="i", 
+     xaxs="i", ylim=c(-0.2,1), xlim=c(1600,5000), main="", cex.axis=0.8, cex.lab=0.9)
 box()
 lines(lambda~hist, data=ddo, lty=2)
 lines(delta~hist, data=ddo)
@@ -61,33 +62,33 @@ dev.off()
 #Now combine all plots to one with similar y-axis
 # ddf is from your script
 
-library(ggplot2)
+#library(ggplot2)
 
 #
 #png("figs/figure2.png", units="px", width=1600, height=1600, res=300, pointsize=24)
-
-ggplot(data = ddo, aes(x = hist)) +
-  geom_histogram(aes(y=..ncount..),
-                 col="black",
-                 bins = 25,
-                 alpha=.2,
-                 fill="white") +
-  geom_line(data = ddo, aes(x = hist, y = lambda, linetype = "lambda")) + 
-  geom_line(data = ddo, aes(x = hist, y = delta, linetype = "delta")) + 
-  scale_linetype_manual(values=c("solid", "longdash"),name = '', labels = expression(lambda,  Delta))+
-  labs(y="", x="Assets") +
-  scale_x_continuous(expand = expansion(mult = c(0, 0)))+ 
-  #scale_y_continuous(expand = expansion(mult = c(0, 0)))+
-  scale_y_continuous(expand = c(0, 0), limits = c(-0.17, NA))+
-  theme(legend.position= "right",
-        panel.background = element_rect(fill = 'white',linetype = 1, colour='black'),
-        #panel.background = element_blank(),
-        axis.text.x=element_text(size=12,colour="black"),
-        axis.text.y=element_text(size=12, colour="black"),
-        axis.title=element_text(size=13),
-        legend.text = element_text(size=16),
-        legend.key=element_blank()
-        )
+# 
+# ggplot(data = ddo, aes(x = hist)) +
+#   geom_histogram(aes(y=..ncount..),
+#                  col="black",
+#                  bins = 25,
+#                  alpha=.2,
+#                  fill="white") +
+#   geom_line(data = ddo, aes(x = hist, y = lambda, linetype = "lambda")) + 
+#   geom_line(data = ddo, aes(x = hist, y = delta, linetype = "delta")) + 
+#   scale_linetype_manual(values=c("solid", "longdash"),name = '', labels = expression(lambda,  Delta))+
+#   labs(y="", x="Assets") +
+#   scale_x_continuous(expand = expansion(mult = c(0, 0)))+ 
+#   #scale_y_continuous(expand = expansion(mult = c(0, 0)))+
+#   scale_y_continuous(expand = c(0, 0), limits = c(-0.17, NA))+
+#   theme(legend.position= "right",
+#         panel.background = element_rect(fill = 'white',linetype = 1, colour='black'),
+#         #panel.background = element_blank(),
+#         axis.text.x=element_text(size=12,colour="black"),
+#         axis.text.y=element_text(size=12, colour="black"),
+#         axis.title=element_text(size=13),
+#         legend.text = element_text(size=16),
+#         legend.key=element_blank()
+#         )
 
 #dev.off()
 
