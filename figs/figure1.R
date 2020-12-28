@@ -33,7 +33,7 @@ c_i <- dff$capital_ins
 png("figs/figure1.png", units="in", width=12, height=12, res=300, pointsize=24)
 
 plot(income, income, col="red", xlim=range(income), ylim=range(income), type="l",
-     xlab="Assets (USD)", ylab="Assets (USD)", lwd=1.5, cex.lab=0.9, cex.axis=0.8)
+     xlab="Assets ($)", ylab="Assets ($)", lwd=1.5, cex.lab=0.9, cex.axis=0.8)
 lines(income[order(income)], c_i[order(income)], col="blue", lwd=2, lty=5)
 points(income, c_i, col="blue", pch=1, cex=1)
 
