@@ -121,7 +121,8 @@ regfun <- function(x, y, main="", label="", ylab="") {
 }
 
 
-png("figs/figure3.png", units="in", width=12, height=12, res=300, pointsize=24)
+#png("figs/figure3.png", units="in", width=12, height=12, res=300, pointsize=24)
+tiff("figs/figure3.tif", units="in", width=12, height=12, res=300, pointsize=24)
 #png("figs/fig2.png", 800, 800, pointsize = 24)
 par(mfrow=c(2, 3), mar=c(4.5, 4, 1.8, 0.2)) #c(bottom, left, top, right)
 regfun(dff$znoaa, dff$mortality_rate, "NO", "(a)", ylab="mortality rate")

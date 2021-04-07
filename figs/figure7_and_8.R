@@ -94,7 +94,8 @@ df0$class.lMD[df0$lm5lMD_ins %in% v]  <- "Type4"
 classes <- c("Type0", "Type1", "Type2", "Type3", "Type4")
 
 
-png("figs/figure7.png", units="in", width=12, height=6, res=600, pointsize=18)
+#png("figs/figure7.png", units="in", width=12, height=6, res=600, pointsize=18)
+tiff("figs/figure7.tif", units="in", width=12, height=6, res=300, pointsize=14)
 
 
 par(mfrow=c(1, 2), mar=c(4, 4, 1, 0)) #c(bottom, left, top, right)
@@ -144,8 +145,8 @@ dev.off()
 #========================================================================
 #make a plot of predictive skill for sm using log transformed Z-scored rainfall
 
-png("figs/figure8.png", units="in", width=12, height=6, res=600, pointsize=18)
-
+#png("figs/figure8.png", units="in", width=12, height=6, res=600, pointsize=18)
+tiff("figs/figure8.tif", units="in", width=12, height=6, res=300, pointsize=14)
 par(mfrow=c(1, 2), mar=c(4,4,1,1)) #c(bottom, left, top, right)
 dff <- dff[dff$zlmodis< -0.5,]
 x <- dff$mortality_rate

@@ -60,7 +60,8 @@ pcols <- cols[match(dff$class, classes)]
 sy <- c(18, 17, 15, 9, 7)
 sch1 <- sy[match(dff$class, classes)]
 #x11()
-png("figs/figure6.png", units="in", width=12, height=12, res=300, pointsize=24)
+#png("figs/figure6.png", units="in", width=12, height=12, res=300, pointsize=24)
+tiff("figs/figure6.tif", units="in", width=12, height=12, res=300, pointsize=24)
 plot(Modis_ins~capital, data = dff, col=pcols, pch=sch1, xlab='Asset ($)', 
      ylab='Asset ($)', cex.axis=0.8, cex.lab=0.9, xlim =c(300,1000), ylim=c(300,1000))
 x=dff$capital
