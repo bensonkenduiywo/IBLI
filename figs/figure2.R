@@ -38,13 +38,15 @@ h$counts <- fscale(h$density) *.8
 
 #
 #png("figs/figure2.png", units="px", width=2000, height=2000, res=300, pointsize=16)
-tiff("figs/figure2.tif", units="px", width=2000, height=2000, res=300, pointsize=16)
+#tiff("figs/figure2.tif", units="px", width=2000, height=2000, res=300, pointsize=16)
+tiff("figs/figure2.tif", units="px", width=2250, height=2625, res=300, pointsize=16)
+
 #ylab 'Scaled value of assets'
 par(mai=c(1.1,1,0.5,0.5))
 plot(h, ylab="Scaled value of assets", xlab="Assets ($)", las=1, yaxs="i", 
      xaxs="i", ylim=c(-0.2,1), xlim=c(340,1000), main="", cex.axis=0.8, cex.lab=0.9)
 box()
-lines(lambda~hist, data=ddo, lty=2)
+lines(lambda~hist, data=ddo, lty=2) #dashed line
 lines(delta~hist, data=ddo)
 legend("top", legend=c(expression(paste(symbol(lambda))), expression(paste(symbol(Delta)))), lty=c(2, 1), bty="n")
 

@@ -15,7 +15,11 @@ colnames(d) <- gsub(tvar, "RIB", colnames(d))
 d$model[d$model=="seg"] <- "sm"
 head(d)
 
-
+#Table
+temp <- reshape2::dcast(d, group ~ model, value.var='r2')
+write.csv(temp,'Figure5_r2.csv')
+temp <- reshape2::dcast(d, group ~ model, value.var='RIB')
+write.csv(temp,'Figure5_rib.csv')
 #Plot RIB against R$^2$ under mortality trigger of 23%.
 
 ug <- unique(d$group)
@@ -25,7 +29,9 @@ cols <- pal[match(d$model, um)]
 char <- (1:6)[match(d$group, ug)]
 
 
-png("figs/figure5.png", units="in", width=6, height=6, res=600, pointsize=18)
+#png("figs/figure5.png", units="in", width=6, height=6, res=600, pointsize=18)
+#tiff("figs/figure5.tif", units="in", width=6, height=6, res=300, pointsize=18)
+tiff("figs/figure5.tif", units="px", width=2250, height=2625, res=300, pointsize=22)
 
 par(mar=c(4, 4, 1, 1))
 plot(d[,3:4], type="n", xlab = expression(R^2),xlim=c(0,0.7), ylim=c(0,0.7),

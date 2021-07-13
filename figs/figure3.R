@@ -88,12 +88,12 @@ dff <- ungroup(mutate(group_by(df1, SUBLOCATION, season), znoaa=zscore(noaa), zr
 colnames(amort)[3] <- "SUBLOCATION"
 dff <- merge(dff, amort, by=c("year", "season", "SUBLOCATION"))
 
-
+library(quantreg)
 regfun <- function(x, y, main="", label="", ylab="") {
 
 
   df <- na.omit(data.frame(x=x, y=y))
-  df0 <- df[df$x<0,]
+  #df0 <- df[df$x<0,]
   df5 <- df[df$x < -0.5,]
  
 	xlab <- paste0("Z-score (", main, ")")
@@ -107,7 +107,9 @@ regfun <- function(x, y, main="", label="", ylab="") {
   wd = 4
   ml <- lm(y~x, data=df)
   abline(ml, col="magenta", lwd=wd, lty=2)  
-  ml2 <- lm(y~x, data=df0)
+  #ml2 <- lm(y~x, data=df0)
+  #Quantile regression with percentile at 50%
+  ml2 <- rq(y~x, data=df, tau = 0.77)
   abline(ml2, col="blue", lwd=wd, lty=3)  
   ml5 <- lm(y~x, data=df5)
   abline(ml5, col="green", lwd=wd, lty=4)  
@@ -116,13 +118,14 @@ regfun <- function(x, y, main="", label="", ylab="") {
   plot.segmented(sm, add=T, lwd=wd-1, lty=1, col="red") 
   
 	if (label == "(c)") {  
-	  legend("topright", c("lm", "lm0", "lm5", "sm"), col=c("magenta", "blue", "green", "red"), lwd=c(wd,wd,wd,wd-1), lty=c(2,3,4,1)) #, bty="n")
+	  legend("topright", c("lm", "qr", "lm5", "sm"), col=c("magenta", "blue", "green", "red"), lwd=c(wd,wd,wd,wd-1), lty=c(2,3,4,1)) #, bty="n")
 	}
 }
 
 
 #png("figs/figure3.png", units="in", width=12, height=12, res=300, pointsize=24)
-tiff("figs/figure3.tif", units="in", width=12, height=12, res=300, pointsize=24)
+#tiff("figs/figure3.tif", units="in", width=12, height=12, res=300, pointsize=24)
+tiff("figs/figure3.tif", units="px", width=2250, height=2625, res=300, pointsize=18)
 #png("figs/fig2.png", 800, 800, pointsize = 24)
 par(mfrow=c(2, 3), mar=c(4.5, 4, 1.8, 0.2)) #c(bottom, left, top, right)
 regfun(dff$znoaa, dff$mortality_rate, "NO", "(a)", ylab="mortality rate")

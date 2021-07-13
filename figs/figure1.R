@@ -62,21 +62,29 @@ c_i <- dff$capital_ins
 #png("figs/figure1.png", units="in", width=12, height=12, res=300, pointsize=24)
 #setEPS()
 #postscript("figs/figure1.pdf", width=12, height=12, pointsize=24)
-tiff("figs/figure1.tif", units="in", width=12, height=12, res=300, pointsize=24)
+#tiff("figs/figure1.tif", units="in", width=12, height=12, res=300, pointsize=24)
+tiff("figs/figure1.tif", units="px", width=2250, height=2250, res=300, pointsize=16)
+
 h <- hist(dff$hist, breaks = 25, main = "", border='black',
           col='white', xlim=c(300,1000))
-plot(h, xlab='Assets ($)', ylab='Probability', main="")
-par(new=TRUE) #c(bottom, left, top, right)
+
+par(mar=c(4, 4, 4, 4))#c(bottom, left, top, right)
 plot(income, income, col="red", xlim=range(income), ylim=range(income), 
-     xlab='', ylab='', type="l", lwd=1.5, cex.lab=0.9, cex.axis=0.8,axes = F)
+     xlab='', ylab='', type="l", lwd=1.5, cex.lab=0.9, cex.axis=0.8)
+mtext("Assets ($)", side = 1, line = 2, cex = 0.9)
+mtext("Assets ($)", side = 2, line = 2, cex = 0.9)
 lines(income[order(income)], c_i[order(income)], col="blue", lwd=2, lty=5)
 points(income, c_i, col="blue", pch=1, cex=1)
-axis(4, col='black') 
-mtext("Assets ($)", side = 4, line = -1)
 curly(x=550, y=648, len= 95, wid=25,lty=1, lwd=1.5, theta=pi)
 text(x = 430, y = 648, expression(paste(symbol(Delta),' = I(',theta,')-p>0')), cex=1)
 curly(x=805, y=790, len= 20, wid=15,lty=1, lwd=1.5,theta=pi)
 text(x = 720, y = 790, expression(paste(symbol(Delta),' = -p<0')), cex=1)
+
+par(new=TRUE) #c(bottom, left, top, right)
+plot(h, xlab='', ylab='', main="", axes = "False")
+axis(4, col='black', cex.axis=0.8) 
+
+mtext("Probability", side = 4, line = 2, cex = 0.9)
 legend("topleft", lty = c(1,5,NA), pch=c(NA, 1, 0), lwd=c(2,2,1), col = c("red", "blue",'black'), 
        legend=c('Asset without insurance', 'Asset with insurance','Asset histogram'), bty="n", cex=0.8)
 

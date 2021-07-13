@@ -132,6 +132,12 @@ colnames(mort)[colnames(mort)=="type"] <- "animal"
 mort <- mort[mort$animal %in% c("Camel", "Cattle", "Shoat"), ]  # remote TLU for merging
 mort <- mort[!is.na(mort$mortality_rate), ]                     # remove zero stock
 
+#Check distribution of households
+temp <- aggregate(hhid~sublocation+year, mort, length)
+temp <- reshape(temp, idvar = "sublocation", timevar = "year", direction = "wide")
+names(temp) <- c("Sublocation", "2008","2009","2010","2011","2012","2013","2014","2015")
+knitr::kable(temp)
+
 cause <- agrodata::data_ibli("marsabit_losses")[,c("hhid", "sublocation", "animal", "cause","month", "year")]
 cause$animal[cause$animal == "Goat/Sheep"] <- "Shoat"
 cause$season <- "SRSD"
@@ -139,6 +145,7 @@ cause$season[cause$month >=3 & cause$month <=9] <-"LRLD"
 head(cause, n=2)
 cause <- na.omit(unique(cause))
 table(cause$cause)
+
 ```
 
 Merge causes table with mortality data.
@@ -150,6 +157,20 @@ nrow(mort)
 nrow(cause)
 mortx  <- merge(mort, cause, by=c("hhid","sublocation", "animal", "season", "year"), all.x=TRUE)
 nrow(mortx)
+
+#Barplot of losses per TLU
+temp <- mortx
+temp$tluloss <- NA
+temp$tluloss[temp$animal=='Cattle'] <- temp$loss[temp$animal=='Cattle']
+temp$tluloss[temp$animal=='Camel'] <- temp$loss[temp$animal=='Camel']/0.7
+temp$tluloss[temp$animal=='Shoat'] <- temp$loss[temp$animal=='Shoat']/10
+x <- tapply(temp$tluloss, temp$cause, sum, na.rm=TRUE)
+x <- sort(round(x))
+tiff("figs/figure1a.tif", units="px", width=2250, height=2000, res=300, pointsize=12)
+par(mai=c(1,5,1,1)) #c(bottom, left, top, right)
+barplot(x, horiz=T, las=1)
+dev.off()
+
 ```
 
 Compute mortality
@@ -358,14 +379,12 @@ regfun <- function(x, y, triggers, main="") {
   test$group <- main
   test$model <- c("lm", "lm0", "lm5", "seg")
   plot(y~x, pch=16, main=main, cex=0.9, cex.main=1.2, cex.lab=1.2, xlab="", ylab="")
-
   ml <- lm(y~x, data=df)
   abline(ml, col="magenta", lwd=3, lty=2)  
   ml2 <- lm(y~x, data=df0)
   abline(ml2, col="blue", lwd=3, lty=3)  
   ml5 <- lm(y~x, data=df5)
   abline(ml5, col="green", lwd=3, lty=4)  
-
   sm <- segmented(ml, seg.Z = ~x, psi=0)
   plot.segmented(sm, add=T, lwd=2, lty=1, col="red") 
   
@@ -388,7 +407,6 @@ regfun <- function(x, y, triggers, main="") {
   e <- predict(ml5)
   df$predicted_mortality <- 0
   df$predicted_mortality[df$x < lm5] <- e
-
   for (i in 1:nt) test[3,i+6] <- get_benefit(df, triggers[i])
   test[3,3:4] <- c(Rsq(df5$y, e), rrmse(df5$y, e))
   test[3,5:6] <- coefficients(ml5)
