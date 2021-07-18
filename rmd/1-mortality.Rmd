@@ -70,6 +70,7 @@ m$date <- as.Date(m$date, format = "X%Y_%m_%d")
 m[1,]
 
 ```
+
 Compute daily average rainfall and NDVI per season in each year. First Create a function to compute means for Long Rain Long Dry (March -- September) and Short Rain Short Dry (October -- February) seasons.
 
 ```{r fxn1}
