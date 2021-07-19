@@ -59,6 +59,16 @@ pcols <- cols[match(dff$class, classes)]
 #sy <- c(18, 17, 15, 9, 7, 10)
 sy <- c(18, 17, 15, 9, 7)
 sch1 <- sy[match(dff$class, classes)]
+
+##:LayMam statistic Summary
+stat <- dff[,c("mortality_rate", "capital","perfect_ins","zlmodis_payouts","Modis_ins",'class')]
+boxplot(mortality_rate~class,data=stat)
+#tapply(stat$mortality_rate,stat$class,mean)
+d <- aggregate(.~class, stat, mean)
+leg <- c('True Negatives', 'Severe False Negatives','Intermediate False Negatives','Small False Negative', 'False Positives')
+d$class[match(d$class,classes)] <- leg
+write.csv(d,'Figure6_Statistics.csv')
+
 #x11()
 #png("figs/figure6.png", units="in", width=12, height=12, res=300, pointsize=24)
 #tiff("figs/figure6.tif", units="in", width=12, height=12, res=300, pointsize=24)
