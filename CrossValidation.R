@@ -211,56 +211,78 @@ mqs_test <- function(rho, d){
 get_benefit <- function(df, trigger, rho=1.5) {
   #Define trigger
   d <- na.omit(df)
-  #trigger <- quantile(data$predicted_mortality, 0.80, na.rm=T)
   #Compute payouts
   d$payouts <- pmax(0, d$predicted_mortality - trigger) 
-  # no need to multiply here, let just set the value of a TLU to "1". * 1000
-  #Compute Actuarily fair premiumL Premium with markup 25%
+  #Compute Actuarially fair premiumL Premium with markup 25%
   premium <- mean(d$payouts, na.rm=TRUE) * 1.1
   #Compute capital with insurance
   d$capital     <- 1 - d$mortality
   d$capital_ins <- (d$capital + d$payouts) - premium
   #Determine insurance benefit
-  mqs_test(rho, d)
+  c <- mqs_test(rho, d)
+  #MQS test for a perfect insurance
+  #Compute payouts
+  d$payouts <- pmax(0, d$mortality - trigger) 
+  #Compute Actuarially fair premiumL Premium with markup 25%
+  premium <- mean(d$payouts, na.rm=TRUE) * 1.1
+  #Compute capital with insurance
+  d$capital     <- 1 - d$mortality
+  d$capital_ins <- (d$capital + d$payouts) - premium
+  #Determine insurance benefit
+  p <- mqs_test(rho, d)
+  rib <- c/p
+  return(rib)
 }
 
 
 #Possible pay-out triggers
 
 mort <- na.omit(dff$mortality_rate)
-trigs <- round(quantile(mort, seq(0.75, 0.9, 0.05)), 2)
-trigs
+triggers <- round(quantile(mort, seq(0.75, 0.9, 0.05)), 2)
+triggers
 
 aggregate(dff[, "mortality_rate", drop=FALSE], dff[,"SUBLOCATION", drop=FALSE], function(i) quantile(i, c(0.75, 0.8, 0.85), na.rm=T))
 
 ##CROSS-VALIDATION
 ##REGRESSION MODELS
-regfun <- function(train, main="znoaa", valid, label) {
+regfun <- function(train, main="znoaa", valid, label, triggers) {
   lm5 <- -0.5
   lm0 <- 0
   df0 <- train[train[,main]<lm0,]
   df5 <- train[train[,main]<lm5,]
-  test <- data.frame(matrix(nrow=4, ncol=4))
-  colnames(test) <- c("group", "model", "R2", "RMSE")
+  test <- data.frame(matrix(nrow=4, ncol=4+length(triggers)))
+  colnames(test) <- c("group", "model", "R2", "RMSE", paste0("mqs", triggers))
   test$group <- label
   test$model <- c("lm", "lm0", "lm5", "seg")
   #MODELS
   ml  <- lm(paste0("mortality_rate","~",main), data=train)
   ml2 <- lm(paste0("mortality_rate","~",main), data=df0)
   ml5 <- lm(paste0("mortality_rate","~",main), data=df5)
-  dd <- data.frame(x=train[,main],y=train$mortality_rate)
+  dd  <- data.frame(x=train[,main],y=train$mortality_rate)
   sm  <- segmented(lm(y~x, data=dd),seg.Z = ~x, psi=0)
   
   e <- predict(ml, valid)
+  valid$mortality <- valid$mortality_rate
+  valid$predicted_mortality <- e
+  for (i in 1:length(triggers)) test[1,i+4] <- get_benefit(valid, triggers[i])
   test[1,3:4] <- c(Rsq(valid$mortality_rate, e), rrmse(valid$mortality_rate, e))
   yy <- valid[valid[,main]<lm0,]
   e <- predict(ml2, yy)
+  yy$mortality <- yy$mortality_rate
+  yy$predicted_mortality <- e
+  for (i in 1:length(triggers)) test[2,i+4] <- get_benefit(yy, triggers[i])
   test[2,3:4] <- c(Rsq(yy$mortality_rate, e), rrmse(yy$mortality_rate, e))
   yy <- valid[valid[,main]<lm5,]
   e <- predict(ml5, yy)
+  yy$mortality <- yy$mortality_rate
+  yy$predicted_mortality <- e
+  for (i in 1:length(triggers)) test[3,i+4] <- get_benefit(yy, triggers[i])
   test[3,3:4] <- c(Rsq(yy$mortality_rate, e), rrmse(yy$mortality_rate, e))
   dd <- data.frame(x=valid[,main],y=valid$mortality_rate)
   e <- predict(sm, dd)
+  valid$mortality <- valid$mortality_rate
+  valid$predicted_mortality <- e
+  for (i in 1:length(triggers)) test[4,i+4] <- get_benefit(valid, triggers[i])
   test[4,3:4] <- c(Rsq(valid$mortality_rate, e), rrmse(valid$mortality_rate, e))
   print(test)
   return(test)
@@ -284,15 +306,17 @@ for(jj in 1:nfolds){
   train <- dd[k != jj, ]
   valid <- dd[k == jj, ]
   #NOAA
-  no[[jj]]  <- regfun(train, "znoaa", valid, "NO")
-  lno[[jj]] <- regfun(train, "zlnoaa", valid, "LNO")
+  no[[jj]]  <- regfun(train, "znoaa", valid, "NO", triggers)
+  lno[[jj]] <- regfun(train, "zlnoaa", valid, "LNO", triggers)
   #RAINFALL
-  rn[[jj]]  <- regfun(train, "zrain", valid, "RN")
-  lrn[[jj]] <- regfun(train, "zlrain", valid, "LRN")
+  rn[[jj]]  <- regfun(train, "zrain", valid, "RN", triggers)
+  lrn[[jj]] <- regfun(train, "zlrain", valid, "LRN", triggers)
   #MODIS
-  mo[[jj]]  <- regfun(train, "zmodis", valid, "MD")
-  lmo[[jj]] <- regfun(train, "zlmodis", valid, "LMD")
+  mo[[jj]]  <- regfun(train, "zmodis", valid, "MD", triggers)
+  lmo[[jj]] <- regfun(train, "zlmodis", valid, "LMD", triggers)
 }
+
+
 no <- Reduce(function(...) merge(..., all=T), no)
 #no <- aggregate(no[,c("R2", "RMSE"), drop=FALSE], no[, c("group","model"), drop=FALSE], mean, na.rm=TRUE)
 lno <- Reduce(function(...) merge(..., all=T), lno)
@@ -306,19 +330,22 @@ rn <- Reduce(function(...) merge(..., all=T), rn)
 lrn <- Reduce(function(...) merge(..., all=T), lrn)
 #lrn <- aggregate(lrn[,c("R2", "RMSE"), drop=FALSE], lrn[, c("group","model"), drop=FALSE], mean, na.rm=TRUE)
 all <- do.call("rbind", list(no, lno, mo,lmo,rn,lrn))
+apply(all[,5:ncol(all)], 2, max)
+apply(all[,5:ncol(all)], 2, min)
 
 x11()
+tiff("figs/S2 Fig.tif", units="px", width=2250, height=2625, res=300, pointsize=15)
 par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
 boxplot(R2~model, data=all, ylab = expression(R^2), xlab="", las=1, main="(a)", cex.axis=.9)
 title(xlab="Model", line=2)
-boxplot(RIB~model, data=d, xlab="", las=1, main="(b)", cex.axis=.9)
-title(xlab="Model", line=2)
+boxplot(mqs0.18~model, data=all, xlab="", ylab="", las=1, main="(b)", cex.axis=.9)
+title(xlab="Model", ylab="RIB", line=2)
 
 boxplot(R2~group, data=all, ylab = expression(R^2), xlab="", las=1, main="(c)", cex.axis=.81)
 title(xlab="Predictor", line=2)
-boxplot(RIB~group, data=d, xlab="", las=1, main="(d)", cex.axis=.81)
-title(xlab="Predictor", line=2)
-
+boxplot(mqs0.18~group, data=all, xlab="", ylab="", las=1, main="(d)", cex.axis=.81)
+title(xlab="Predictor", ylab="RIB", line=2)
+dev.off()
 
 #SAVE DATA
 write.csv(all, '3fold_CrossValidation.csv')
