@@ -287,58 +287,63 @@ regfun <- function(train, main="znoaa", valid, label, triggers) {
   return(test)
 }
 
-set.seed(530)
-
 library(dismo)
 nfolds <- 5
-
 dd <- na.omit(dff)
-k <- kfold(dd, k = nfolds)
-nrow(dd) / nfolds
-table(k)
-no  <- lno <- rn  <- lrn <- mo  <- lmo <- list()
 
-for(jj in 1:nfolds){
-  cat("Fold", jj, "of", nfolds, "\n")
-  train <- dd[k != jj, ]
-  valid <- dd[k == jj, ]
-  #NOAA
-  no[[jj]]  <- regfun(train, "znoaa", valid, "NO", triggers)
-  lno[[jj]] <- regfun(train, "zlnoaa", valid, "LNO", triggers)
-  #RAINFALL
-  rn[[jj]]  <- regfun(train, "zrain", valid, "RN", triggers)
-  lrn[[jj]] <- regfun(train, "zlrain", valid, "LRN", triggers)
-  #MODIS
-  mo[[jj]]  <- regfun(train, "zmodis", valid, "MD", triggers)
-  lmo[[jj]] <- regfun(train, "zlmodis", valid, "LMD", triggers)
+docv <- function(...) {
+
+	k <- kfold(dd, k = nfolds)
+	no  <- lno <- rn  <- lrn <- mo  <- lmo <- list()
+
+	for(jj in 1:nfolds){
+#	  cat("Fold", jj, "of", nfolds, "\n")
+	  train <- dd[k != jj, ]
+	  valid <- dd[k == jj, ]
+	  #NOAA
+	  no[[jj]]  <- regfun(train, "znoaa", valid, "NO", triggers)
+	  lno[[jj]] <- regfun(train, "zlnoaa", valid, "lNO", triggers)
+	  #RAINFALL
+	  rn[[jj]]  <- regfun(train, "zrain", valid, "RN", triggers)
+	  lrn[[jj]] <- regfun(train, "zlrain", valid, "lRN", triggers)
+	  #MODIS
+	  mo[[jj]]  <- regfun(train, "zmodis", valid, "MD", triggers)
+	  lmo[[jj]] <- regfun(train, "zlmodis", valid, "lMD", triggers)
+	}
+
+
+	no <- do.call(rbind, no)
+	lno <- do.call(rbind, lno)
+	mo <- do.call(rbind, mo)
+	lmo <- do.call(rbind, lmo)
+	rn <- do.call(rbind, rn)
+	lrn <- do.call(rbind, lrn)
+
+	all <- rbind(no, lno, mo,lmo,rn,lrn)
+	# take the average to get CV scores
+	aggregate(all[, -c(1:2)], all[, 1:2], mean)
 }
 
 
-no <- do.call(rbind, no)
-lno <- do.call(rbind, lno)
-mo <- do.call(rbind, mo)
-lmo <- do.call(rbind, lmo)
-rn <- do.call(rbind, rn)
-lrn <- do.call(rbind, lrn)
+set.seed(530)
+cv <- docv()
 
-all <- rbind(no, lno, mo,lmo,rn,lrn)
-# take the average to get CV scores
-cv <- aggregate(all[, -c(1:2)], all[, 1:2], mean)
 
-apply(all[,5:ncol(all)], 2, max)
-apply(all[,5:ncol(all)], 2, min)
 
-#tiff("S2 Fig.tif", units="px", width=2250, height=2625, res=300, pointsize=15)
-par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
-boxplot(R2~model, data=cv, ylab = expression(R^2), xlab="", las=1, main="(a)", cex.axis=.9)
-title(xlab="Model", line=2)
-boxplot(mqs0.18~model, data=cv, xlab="", ylab="", las=1, main="(b)", cex.axis=.9)
-title(xlab="Model", ylab="RIB", line=2)
+#apply(all[,5:ncol(all)], 2, max)
+#apply(all[,5:ncol(all)], 2, min)
 
-boxplot(R2~group, data=cv, ylab = expression(R^2), xlab="", las=1, main="(c)", cex.axis=.81)
-title(xlab="Predictor", line=2)
-boxplot(mqs0.18~group, data=cv, xlab="", ylab="", las=1, main="(d)", cex.axis=.81)
-title(xlab="Predictor", ylab="RIB", line=2)
+tiff("S2 Fig.tif", units="px", width=2250, height=2625, res=300, pointsize=15)
+	par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
+	boxplot(R2~model, data=cv, ylab = expression(R^2), xlab="", las=1, main="(a)", cex.axis=.9)
+	title(xlab="Model", line=2)
+	boxplot(mqs0.18~model, data=cv, xlab="", ylab="", las=1, main="(b)", cex.axis=.9)
+	title(xlab="Model", ylab="RIB", line=2)
+
+	boxplot(R2~group, data=cv, ylab = expression(R^2), xlab="", las=1, main="(c)", cex.axis=.81)
+	title(xlab="Predictor", line=2)
+	boxplot(mqs0.18~group, data=cv, xlab="", ylab="", las=1, main="(d)", cex.axis=.81)
+	title(xlab="Predictor", ylab="RIB", line=2)
 dev.off()
 
 #SAVE DATA
@@ -350,19 +355,17 @@ write.csv(cv, '5fold_CrossValidation.csv')
 
 #saveRDS(x,  "regression_models_XX.rds")
 
-x <- readRDS("C:/github/IBLI/rmd/regression_models.rds")
+x <- readRDS("C:/github/IBLI/rmd/reg_RIB.rds")
 m <- merge(x, cv, by=1:2)
 
 tab <- m[, c("group", "model", "r2", "mqs0.23.x", "R2",  "mqs0.23.y")]
 write.csv(tab, 'S2table1.csv')
 
 
-
-plot(m$r2, m$R2, xlab="Internal R2", ylab="Cross-validated R2", xlim=c(0.1, 0.55), ylim=c(0.1, 0.55), las=1)
+par(mfrow=c(1,2))
+plot(tab$r2, tab$R2, xlab="Internal R2", ylab="Cross-validated R2", xlim=c(0.1, 0.55), ylim=c(0.1, 0.55), las=1)
 abline(0,1)
-
-#plot(m$R2, m$mqs0.23.y, xlab="R2", ylab="RIB", xlim=c(0.1, 0.55), ylim=c(0.1, 0.55), las=1)
-#abline(0,1)
-
+plot(tab[,4], tab[,6], xlab="Internal RIB", ylab="Cross-validated RIB", xlim=c(0, 0.5), ylim=c(0, 0.5), las=1)
+abline(0,1)
 
 
