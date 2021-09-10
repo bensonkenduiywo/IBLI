@@ -291,8 +291,8 @@ regfun <- function(train, main="znoaa", valid, label, triggers) {
 set.seed(530)
 library(dismo)
 dd <- na.omit(dff)
-k <- kfold(dd, k = 3)
-nrow(dd) / 3
+k <- kfold(dd, k = 5)
+nrow(dd) / 5
 table(k)
 nfolds <- dim(table(k))
 no  <- list()

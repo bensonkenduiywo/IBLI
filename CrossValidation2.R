@@ -333,7 +333,7 @@ cv <- docv()
 #apply(all[,5:ncol(all)], 2, max)
 #apply(all[,5:ncol(all)], 2, min)
 
-tiff("S2 Fig.tif", units="px", width=2250, height=2625, res=300, pointsize=15)
+tiff("figs/S2 Fig 1.tif", units="px", width=2250, height=2625, res=300, pointsize=15)
 	par(mfrow=c(2, 2), mar=c(4.5, 4.2, 1.8, 1)) #c(bottom, left, top, right)
 	boxplot(R2~model, data=cv, ylab = expression(R^2), xlab="", las=1, main="(a)", cex.axis=.9)
 	title(xlab="Model", line=2)
@@ -355,17 +355,21 @@ write.csv(cv, '5fold_CrossValidation.csv')
 
 #saveRDS(x,  "regression_models_XX.rds")
 
-x <- readRDS("C:/github/IBLI/rmd/reg_RIB.rds")
+x <- readRDS("reg_RIB.rds")
 m <- merge(x, cv, by=1:2)
 
 tab <- m[, c("group", "model", "r2", "mqs0.23.x", "R2",  "mqs0.23.y")]
 write.csv(tab, 'S2table1.csv')
 
-
-par(mfrow=c(1,2))
-plot(tab$r2, tab$R2, xlab="Internal R2", ylab="Cross-validated R2", xlim=c(0.1, 0.55), ylim=c(0.1, 0.55), las=1)
+tiff("figs/S2 Fig 2.tif", units="px", width=2250, height=2250, res=300, pointsize=15)
+par(mfrow=c(1,2), mar=c(4.5, 4.3, 16, 1)) #c(bottom, left, top, right)
+plot(tab$r2, tab$R2, xlab=expression(paste("Internal ",R^2)), 
+     ylab=expression(paste("Cross-validated ",R^2)), xlim=c(0.1, 0.55), 
+     ylim=c(0.1, 0.55), las=1, pch=20, cex=0.95, cex.axis=0.85, cex.lab=0.85)
 abline(0,1)
-plot(tab[,4], tab[,6], xlab="Internal RIB", ylab="Cross-validated RIB", xlim=c(0, 0.5), ylim=c(0, 0.5), las=1)
+plot(tab[,4], tab[,6], xlab="Internal RIB", ylab="Cross-validated RIB", 
+     xlim=c(0, 0.5), ylim=c(0, 0.5), las=1, pch=20, cex=0.95, cex.axis=0.85, cex.lab=0.85)
 abline(0,1)
+dev.off()
 
 
