@@ -1,0 +1,128 @@
+---
+title: "Rainfall Index Contract"
+author: "Benson Kenduiywo"
+date: "2024-11-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Agricultural production is increasingly vulnerable to risks in the face of a changing climate. Weather variability, such as more frequent and severe droughts and floods driven by climate change, disrupts growing seasons and water availability, leading to *crop failure* and *livestock loss*. The new climatic patterns also create favorable conditions for *pest outbreaks*, further threatening yields and food security. Additionally, the instability caused by weather-related impacts can contribute to *market price fluctuations*, making it harder for farmers, especially smallholders, to predict income and manage resources. Given these challenges, agricultural insurance becomes crucial, offering a safety net for farmers by mitigating financial losses from unpredictable events, and helping to build resilience against climate-related risks.
+
+However, conventional insurance programs are based on individual loss adjustments, that is they provide coverage against actual (“idiosyncratic”) losses incurred by individuals or households. However, it can be challenging to run such for smallholder scale farmers because: 
+
+1) it is costly to verify losses; 
+2) risk of moral hazard, farmers may change behaviour after they take insurance that is it can be incentive of farmers to report losses to get a payout; and 
+3) adverse selection, a situation where individuals or farmers with a higher-than-average risk of experiencing losses (e.g., crop failure due to drought) are more likely to purchase insurance than those with lower risks. This happens because the individuals have more information about their specific risks than the insurer does, leading to a disproportionate number of high-risk clients buying the insurance.
+
+Index insurance can overcome these challenges. In index insurance programs, payouts are made based on a regional index that is correlated to losses. The index can be an amount of rainfall or derived from a vegetation index from satellite data. Index insurance is thus a proxy insurance that provides a hedging mechanism. In other words, instead of protecting households against their losses, it protects them against risk that all farmers in an area are exposed to at the same time (covariant risk).
+
+## A sample index insurances
+ 
+Consider a hypothetical rainfall index insurance that covers a germination period, say 01/03/2024--14/03/2024, for farmers in Trans-Nzoia county. The rainfall index covers a square grid of 10 $km^2$ based on daily Climate Hazards group Infrared Precipitation with Stations (CHIRPS) data (Funk et al. 2015). 
+
+The index makes a payout $p$---that corresponds to a percentage of the sum insured of \$100---if rainfall is below a threshold of 10 mm $trigger$ in  a given 10 $km^2$  grid $i$ Basically farmer gets 100% of the payout if rainfall received within their grid is below 0 mm $exit$. Therefore, the payout function can be expressed as: 
+
+$$
+    p(r) = \begin{cases} s \times {(trigger-r_i)} / {(trigger-exit)}    & \text{if } r_i < trigger \\
+    0 & \text{if } r_i > trigger
+    \end{cases}
+$$
+where \emph{s} is the sum insured, \emph{trigger} is the rainfall threshold below which the insurance starts to pay, \emph{exit} is the rainfall amount in mm that corresponding to maximum payment (100%), and \emph{r} is the total rainfall received during the period under consideration in a given grid $i$.
+
+```{r lib, message=FALSE, echo=FALSE}
+rm(list=ls(all=TRUE))
+g <- gc(reset = T);
+library(dplyr)
+list.of.packages <- c("dplyr")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, dependencies = T)
+lapply(list.of.packages, require, character.only = TRUE)
+#Index Insurance
+```
+
+
+```{r, i1, message=FALSE}
+#Index Insurance
+
+rain <- readRDS("D:/OneDrive - CGIAR/Analysis/IBLI/gca/Trans-Nzoia_Chirps_Rainfall.rds")
+names(rain)[1] <- "Grid"
+head(rain)
+startDate <- "2024.03.01"
+endDate <- "2024.03.14"
+plant <- rain[rain$Date >= startDate & rain$Date <= endDate, ]
+
+germ <- aggregate(Rainfall~Grid, plant, sum, na.rm=T, drop=T)
+plot(Rainfall~Grid, data=germ, ylab='Total rainfall', xlab='Grid ids', main="Germination")
+
+indeminity <- function(r, trigger=10, exit=0, suminsured=100){
+  result <- ifelse(r < trigger,
+                   suminsured*((trigger-r)/(trigger-exit)),
+                   0)
+  return(result)
+}
+
+
+germ$Payout <- 0
+germ$Payout <- indeminity(germ$Rainfall, trigger=10, exit=0, suminsured=100)
+plot(Payout~Rainfall, data=germ, main='Simple payout contract')
+```
+
+
+
+Generally, maize requires sufficient, soil moisture around the seed’s surface to germinate. For instance, as soon as 10--20 mm is received in one rainfall, early planting can commence, as long as temperature is not a limiting factor. Based on this we can set the following payment conditions based on observed $r$ in a grid $i$:
+
+1) if $r_i$ is greater than 20 mm (trigger) pay 0 US dollars, 
+2) if $r_i$ less than or equal to 20 mm (trigger) and greater than 10 mm (exit) then pay an equivalent percentage of sum insured, and
+3) if rainfall observed in each grid is less than or equal to the exit pay the maximum sum insured, 
+Therefore, our new payout function can be expressed as:
+
+$$
+    p(r) = \begin{cases} 0 & \text{if } r_i > trigger \\ s \times {(trigger-r_i)} / {(trigger-exit)}    & \text{if } exit < r_i \leq trigger \\
+    s & \text{if } r_i \leq exit 
+    \end{cases}
+$$
+
+```{r i2}
+indeminity <- function(r, trigger=20, exit=10, suminsured=100){
+  result <- ifelse(r > trigger,
+                   0,
+                   ifelse(r > exit & r <= trigger , suminsured*((trigger-r)/(trigger-exit)), 
+                          suminsured)
+                   )
+  
+  return(result)
+}
+germ$Payout <- 0
+germ$Payout <- indeminity(germ$Rainfall, trigger=20, exit=10, suminsured=100)
+plot(Payout~Rainfall, data=germ, main='Simple payout contract')
+```
+
+
+Insurance covers come at a cost. Let's assumme that the farmer paid a premium of $20. Then payout after consider premium will be:
+
+
+```{r i3}
+
+germ$NetPayout <- germ$Payout - 20
+plot(Payout~Rainfall, data=germ, ylim=c(-20, 100), col='green', main='Simple payout contract')
+points(germ$Rainfall,germ$NetPayout, col='red')
+abline(h = 0, col = "gray60")
+```
+
+
+## Excercise
+
+Based on the demonstration above, what will happen if:
+
+1) Play with the trigger and exit values and determine impact on insurance?
+2) Can we choose a different period and evaluate impact on payouts?
+
+
+## References
+
+1) Funk, C., Peterson, P., Landsfeld, M. et al. The climate hazards infrared precipitation with stations—a new environmental record for monitoring extremes. *Sci Data 2*, 150066 (2015). https://doi.org/10.1038/sdata.2015.66
