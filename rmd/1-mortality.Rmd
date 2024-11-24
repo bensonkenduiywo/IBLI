@@ -12,6 +12,8 @@ editor_options:
 
 ```{r lib, message=FALSE}
 rm(list=ls(all=TRUE))
+if(!require("agrodata")) devtools::install_github("reagro/agrodata")
+if(!require("agro")) devtools::install_github("reagro/agroa")
 library(dplyr)
 library(raster)
 library(sp)
